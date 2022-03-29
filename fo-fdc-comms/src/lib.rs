@@ -19,17 +19,16 @@ pub enum Ammunition {
     HighExplosive,
 }
 
+/// A Fire Requester, providing a wrapper around the JSON over UDP interface
 pub struct FireRequester {
     /// The socket the `FireRequester` will send the request from.
     socket: UdpSocket,
 }
 
 impl FireRequester {
+    /// Initializes a `FireRequester` that talks to the specified FDC Address
     pub async fn new(fdc_address: SocketAddrV4) -> Self {
-        let ip = Ipv4Addr::from_str("127.0.0.1").unwrap();
-        let port = 8080;
-        let addr = SocketAddrV4::new(ip, port);
-        let sender_socket = UdpSocket::bind(addr)
+        let sender_socket = UdpSocket::bind("127.0.0.1:8080")
             .await
             .expect("failed to bind to address");
         sender_socket
@@ -42,6 +41,7 @@ impl FireRequester {
         }
     }
 
+    /// Sends a RRF on this `FireRequester`'s connected socket.
     pub async fn send_request_for_fire(
         &self,
         rrf: request_for_fire::WarnOrder,
