@@ -41,18 +41,24 @@ The Forward observer will provide requests to the FDC to process fire missions. 
 The FO will communicate with the FDC via UDP. The FDC will provide a listening socket, and will be provided the response target by the FO. Once connection is established via UDP, the FO will begin the fire mission request. Messages will be sent as JSON strings, and will follow normal fire request procedures. In the event a message is received that does not read back correctly, or a message is sent, but no response is given within 1 second, the sender will resend. An example is shown below:
 
 
-FO to FDC (WARNO): 
+FO to FDC (WARNO):
+
 ```json
 {
     "src": "november",
     "receiver": "talon",
     "response_addr": "127.0.0.1:8080",
     "mission_type": "adjust_fire",    
-    "target_location": { // Alternatively, this can contain "polar": {"direction": 1234, "distance": 1200}
+    "target_location": {
         "grid": {
             "lateral": 123,
             "longitudinal": 456
-        }
+        },
+        // OR
+        "polar": {
+            "direction": 1234,
+            "distance": 1200,
+        },
     },
     "target_description": {
         "target_type": "",
@@ -62,9 +68,10 @@ FO to FDC (WARNO):
     },
     "danger_close": false,
     "ammunition": null,
-    "method_of_fire": null
+    "method_of_fire": null,
 }
 ```
+
 Upon receipt, the FDC will echo back, replacing the `"src"` and `"receiver"` fields as applicable.
 
 At this point, the FO has finished the request for fire, and the FDC will take control of the chain of events with a message to observer:
