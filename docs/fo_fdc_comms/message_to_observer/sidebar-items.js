@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["MessageToObserver",""],["TargetNumber",""]]});

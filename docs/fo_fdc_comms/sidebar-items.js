@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Ammunition","Ammunition types"]],"mod":[["message_to_observer",""],["request_for_fire",""]],"struct":[["FireRequester","A Fire Requester, providing a wrapper around the JSON over UDP interface"]]});
