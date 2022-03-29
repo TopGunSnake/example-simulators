@@ -1,13 +1,13 @@
-Example of Simulators written in Rust. Each workspace member is either a binary crate representing a different simulator, or a library crate for shared behavior
+Example of Simulators written in Rust. Each workspace member is either a binary crate representing a different simulator, or a library crate for shared behavior. These simulators will try to emulate an FO-FDC-Gun chain, using a variety of interfaces. Key features to be explored with this: Serialization/Deserialization with `serde`, asynchronous IO with `tokio`, compartmental unit tests and integration tests.
 
 # Simulators
 The simulators provided are designed to interop with each other, as defined by each simulator.
 
 ## Fire Direction Controller Sim
-This sim emulates the FDC operator.
+This sim emulates the FDC operator. Each FDC sim will own and communicate with multiple Gun sims.
 
 ## Gun Sim
-This sim emulates a gun being directed by the FDC. There can be multiple guns. Each gun can only process one mission at a time.
+This sim emulates a gun being directed by the FDC. Each gun can only process one mission at a time.
 
 ## Forward Observer Sim
 This sim emulates a Forward Observer, who sends requests to the FDC for a fire mission.
@@ -32,6 +32,8 @@ The message field can contain the following possible messages:
 | Fire | | Request the Gun to fire at the specified target, with specified ammunition |
 | CheckFire | | Requests the Gun to checkfire a current fire mission |
 | ComplianceResponse | | Response message for Fire and CheckFire |
+
+TODO: Define message types
 
 ## FO - FDC Interface
 The Forward observer will provide requests to the FDC to process fire missions. Multiple fire missions can be queued with an FDC, but each mission is not completed until the FO confirms the mission is complete, or the FDC informs a CANTCO.
