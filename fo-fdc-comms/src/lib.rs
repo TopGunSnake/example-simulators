@@ -1,9 +1,6 @@
 #![forbid(unused_imports)]
 
-use std::{
-    net::{Ipv4Addr, SocketAddrV4},
-    str::FromStr,
-};
+use std::net::SocketAddrV4;
 
 use serde::{Deserialize, Serialize};
 use tokio::net::UdpSocket;
