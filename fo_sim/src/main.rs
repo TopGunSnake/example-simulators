@@ -1,3 +1,4 @@
+use anyhow::Result;
 use fo_fdc_comms::message_to_observer::MessageToObserver;
 use serde_json::Value;
 use tokio::{net::UdpSocket, signal};
@@ -31,7 +32,7 @@ impl FoSim {
     }
 
     #[instrument]
-    async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
+    async fn run(&self) -> Result<()> {
         loop {
             trace!("Looping...");
             let msg = tokio::select! {
@@ -50,7 +51,7 @@ impl FoSim {
     }
 
     #[instrument]
-    async fn recv_message(&self) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    async fn recv_message(&self) -> Result<Vec<u8>> {
         let mut buffer = vec![0u8; 20];
         debug!("Buffer size: {} bytes", buffer.len());
 
@@ -64,7 +65,7 @@ impl FoSim {
 
     /// Helper function to convert a received json message into one of the formats expected.
     #[instrument]
-    async fn process_message(msg: &[u8]) -> Result<IncomingMessages, Box<dyn std::error::Error>> {
+    async fn process_message(msg: &[u8]) -> Result<IncomingMessages> {
         let v: Value = serde_json::from_slice(msg)?;
         info!("Received message: {:#?}", v);
 
@@ -82,24 +83,26 @@ impl FoSim {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     info!("Starting FO Simulator");
     let shutdown_token = CancellationToken::new();
-
+    let child_token = shutdown_token.child_token();
     info!("Setting up UDP Socket to FDC");
     let fdc_socket = UdpSocket::bind("127.0.0.1:7070").await?;
 
     fdc_socket.connect("127.0.0.1:8080").await?;
 
-    let fo_sim = FoSim::new(shutdown_token.child_token(), fdc_socket);
-
+    let join_handle = tokio::spawn(async move {
+        let fo_sim = FoSim::new(child_token, fdc_socket);
+        fo_sim.run().await
+    });
     tokio::select! {
         _ = signal::ctrl_c() => {
             shutdown_token.cancel();
-        }
-        result = fo_sim.run() => return result,
+        },
+        result = join_handle => {}
     }
 
     info!("FO Simulator shutdown");
