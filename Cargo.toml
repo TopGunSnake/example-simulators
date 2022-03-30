@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = ["fo-fdc-comms"]
+members = ["fo_sim", "fo-fdc-comms"]
