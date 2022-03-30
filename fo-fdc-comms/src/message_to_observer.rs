@@ -3,16 +3,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::Ammunition;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct MessageToObserver {
-    src: String,
-    receiver: String,
-    target_number: TargetNumber,
-    ammunition: Ammunition,
-    rounds: u32,
+    pub src: String,
+    pub receiver: String,
+    pub target_number: TargetNumber,
+    pub ammunition: Ammunition,
+    pub rounds: u32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct TargetNumber {
     value: String,
 }
