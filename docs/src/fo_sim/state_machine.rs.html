@@ -181,13 +181,56 @@
 <span id="179">179</span>
 <span id="180">180</span>
 <span id="181">181</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow::Result</span>;
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Provides the functions and enums for maintaining the FO state machine.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! The FO State Machine uses the top level [`FoState`] for representing the state of the FO.</span>
+<span class="doccomment">//! The workhorse of this module, and the intended component for use is the [`state_machine_loop`],</span>
+<span class="doccomment">//! which provides an `async` function for use in a runtime.</span>
+<span class="kw">use</span> <span class="ident">anyhow::Result</span>;
 <span class="kw">use</span> <span class="ident">fo_fdc_comms</span>::{
     <span class="ident">readback::SolidReadback</span>,
-    <span class="ident">shot_fire</span>::{<span class="ident">Shot</span>, <span class="ident">Splash</span>},
+    <span class="ident">shot_fire</span>::{<span class="ident">RoundsComplete</span>, <span class="ident">Shot</span>, <span class="ident">Splash</span>},
 };
 <span class="kw">use</span> <span class="ident">tokio::sync::mpsc</span>::{<span class="ident">UnboundedReceiver</span>, <span class="ident">UnboundedSender</span>};
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">info</span>, <span class="ident">info_span</span>, <span class="ident">instrument</span>, <span class="ident">warn</span>};
+<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">info</span>, <span class="ident">info_span</span>, <span class="ident">instrument</span>, <span class="ident">trace</span>, <span class="ident">warn</span>};
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::fo_fdc_commhandler</span>::{<span class="ident">FromFdcMessage</span>, <span class="ident">ToFdcMessage</span>};
 
@@ -196,9 +239,13 @@
 <span class="doccomment">/// A FO is either offline (with no FDC to talk to), or connected to an FDC.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum</span> <span class="ident">FoState</span> {
+    <span class="doccomment">/// State representing when the FO is not attached to an FDC.</span>
     <span class="ident">Offline</span>,
+    <span class="doccomment">/// State representing when the FO is attached to an FDC.</span>
     <span class="ident">Connected</span> {
+        <span class="doccomment">/// The callsign of the FDC that the FO is connected to.</span>
         <span class="ident">attached_fdc</span>: <span class="ident">String</span>,
+        <span class="doccomment">/// The current state of the FO while connected.</span>
         <span class="ident">state</span>: <span class="ident">ConnectedState</span>,
     },
 }
@@ -242,7 +289,7 @@
         )
     }
 
-    <span class="doccomment">/// Changes the fo state to [`Observing`].</span>
+    <span class="doccomment">/// Tries to change the internal [`ConnectedState`] to [`Observing`].</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// [`Observing`]: ConnectedState::Observing</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">try_to_observing</span>(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
@@ -267,16 +314,20 @@
 <span class="doccomment">/// observing fires, or reporting a battle assessment</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum</span> <span class="ident">ConnectedState</span> {
+    <span class="doccomment">/// State representing when the FO is standing by, before requesting fires.</span>
     <span class="ident">Standby</span>,
+    <span class="doccomment">/// State representing when the FO is requesting fires.</span>
     <span class="ident">Requesting</span>,
+    <span class="doccomment">/// State representing when the FO is observing fires after receiving a MTO.</span>
     <span class="ident">Observing</span>,
+    <span class="doccomment">/// State representing when the FO has finished observing, and is reporting a BDA back to the FDC.</span>
     <span class="ident">Reporting</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">ConnectedState</span> {
-    <span class="doccomment">/// Changes the connected state to [`Observing`].</span>
+    <span class="doccomment">/// Changes the [`ConnectedState`] to [`Observing`].</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// [`Observing`]: Self::Observing</span>
+    <span class="doccomment">/// [`Observing`]: ConnectedState::Observing</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">into_observing</span>(<span class="self">self</span>) -&gt; <span class="self">Self</span> {
         <span class="ident"><span class="self">Self</span>::Observing</span>
     }
@@ -284,8 +335,14 @@
 
 <span class="doccomment">/// Asynchronous executor loop for managing the state machine.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// All state manipulation happens within the context of this Future.</span>
+<span class="doccomment">/// All state manipulation happens within the context of this function.</span>
+<span class="doccomment">/// In the event a message is received that is not expected, the state machine will not change state,</span>
+<span class="doccomment">/// but will emit a [`tracing::warn!`] event.</span>
 <span class="doccomment">///</span>
+<span class="doccomment">/// # Arguments</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// * `message_queue` - The receive side of a channel for processing the state machine with messages from the FDC.</span>
+<span class="doccomment">/// * `to_fdc` - The send side of a channel where messages to send to the FDC are sent by the state machine loop.</span>
 <span class="attribute">#[<span class="ident">instrument</span>]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">state_machine_loop</span>(
     <span class="kw-2">mut</span> <span class="ident">message_queue</span>: <span class="ident">UnboundedReceiver</span><span class="op">&lt;</span><span class="ident">FromFdcMessage</span><span class="op">&gt;</span>,
@@ -297,12 +354,18 @@
     <span class="comment">// Receive messages from the queue until the senders close.</span>
     <span class="comment">// Once the senders close, this expression will return `None`.</span>
     <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">message</span>) <span class="op">=</span> <span class="ident">message_queue</span>.<span class="ident">recv</span>().<span class="kw">await</span> {
-        <span class="macro">debug!</span>(<span class="string">&quot;Received message: {:?}&quot;</span>, <span class="ident">message</span>);
+        <span class="macro">trace!</span>(<span class="string">&quot;Received message: {:?}&quot;</span>, <span class="ident">message</span>);
         <span class="kw">let</span> <span class="ident">_enter</span> <span class="op">=</span> <span class="ident">message_process_span</span>.<span class="ident">enter</span>();
+
         <span class="kw">match</span> <span class="ident">message</span> {
+            <span class="comment">// FDC Messages sent when the FO is requesting</span>
+
             <span class="comment">// Request for Fire Confirmation</span>
             <span class="ident">FromFdcMessage::RequestForFireConfirm</span>(<span class="ident">rff_readback</span>) <span class="kw">if</span> <span class="ident">state</span>.<span class="ident">is_requesting</span>() =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;Received a readback for Request for Fire. Evaluating...&quot;</span>);
+                <span class="macro">debug!</span>(<span class="string">&quot;RFF Readback: {:?}&quot;</span>, <span class="ident">rff_readback</span>);
                 <span class="comment">//TODO: Proccess any errors</span>
+                <span class="macro">info!</span>(<span class="string">&quot;Readback confirmed, sending SolidReadback...&quot;</span>);
                 <span class="ident">to_fdc</span>.<span class="ident">send</span>(<span class="ident">ToFdcMessage::SolidReadback</span>(<span class="ident">SolidReadback</span>))<span class="question-mark">?</span>
             }
             <span class="comment">// MTO Received while Requesting a Fire Mission</span>
@@ -318,19 +381,26 @@
                     .<span class="ident">expect</span>(<span class="string">&quot;state was invalid for conversion&quot;</span>);
             }
 
+            <span class="comment">// FDC Messages sent when the FO is observing</span>
+
             <span class="comment">// Shot was received while Observing a Fire Mission</span>
             <span class="ident">FromFdcMessage::Shot</span>(<span class="ident">_msg</span>) <span class="kw">if</span> <span class="ident">state</span>.<span class="ident">is_observing</span>() =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;Received a Shot message&quot;</span>);
+                <span class="macro">info!</span>(<span class="string">&quot;Received a Shot message, echoing...&quot;</span>);
                 <span class="ident">to_fdc</span>.<span class="ident">send</span>(<span class="ident">ToFdcMessage::ShotConfirm</span>(<span class="ident">Shot</span>))<span class="question-mark">?</span>
             }
             <span class="comment">// Splash was received while Observing a Fire Mission</span>
             <span class="ident">FromFdcMessage::Splash</span>(<span class="ident">_msg</span>) <span class="kw">if</span> <span class="ident">state</span>.<span class="ident">is_observing</span>() =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;Received a Splash message&quot;</span>);
+                <span class="macro">info!</span>(<span class="string">&quot;Received a Splash message, echoing...&quot;</span>);
                 <span class="ident">to_fdc</span>.<span class="ident">send</span>(<span class="ident">ToFdcMessage::SplashConfirm</span>(<span class="ident">Splash</span>))<span class="question-mark">?</span>
-                <span class="comment">//TODO: Start BDA send behavior</span>
+            }
+            <span class="comment">// RoundsComplete was received while Observing a Fire Mission</span>
+            <span class="ident">FromFdcMessage::RoundsComplete</span>(<span class="ident">_msg</span>) <span class="kw">if</span> <span class="ident">state</span>.<span class="ident">is_observing</span>() =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;Received a RoundsComplete message, echoing...&quot;</span>);
+                <span class="ident">to_fdc</span>.<span class="ident">send</span>(<span class="ident">ToFdcMessage::RoundsCompleteConfirm</span>(<span class="ident">RoundsComplete</span>))<span class="question-mark">?</span>
+                <span class="comment">//TODO: Transition to Reporting, and send a BDA</span>
             }
 
-            <span class="comment">// Unexpected Messages</span>
+            <span class="comment">// UNEXPECTED MESSAGES</span>
             <span class="ident">FromFdcMessage::RequestForFireConfirm</span>(<span class="ident">rff_readback</span>) =&gt; {
                 <span class="macro">warn!</span>(
                     <span class="string">&quot;Received a readback for RFF when in a state that does not expect an RFF: {:?}&quot;</span>,
@@ -355,6 +425,12 @@
             <span class="ident">FromFdcMessage::Splash</span>(<span class="ident">msg</span>) =&gt; {
                 <span class="macro">warn!</span>(
                     <span class="string">&quot;Received a Splash when in a state that does not expect a Splash: {:?}&quot;</span>,
+                    <span class="ident">msg</span>
+                );
+            }
+            <span class="ident">FromFdcMessage::RoundsComplete</span>(<span class="ident">msg</span>) =&gt; {
+                <span class="macro">warn!</span>(
+                    <span class="string">&quot;Received a RoundsComplete when in a state that does not expect a RoundsComplete: {:?}&quot;</span>,
                     <span class="ident">msg</span>
                 );
             }

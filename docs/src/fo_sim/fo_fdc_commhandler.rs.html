@@ -26,30 +26,72 @@
 <span id="24">24</span>
 <span id="25">25</span>
 <span id="26">26</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">fo_fdc_comms</span>::{
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Contains the message types that the FO sim can send/receive, as well as the communication tasks (send and receive)</span>
+<span class="doccomment">//!</span>
+<span class="kw">use</span> <span class="ident">fo_fdc_comms</span>::{
     <span class="ident">battle_damage_assessment::BattleDamageAssessment</span>,
     <span class="ident">message_to_observer::MessageToObserver</span>,
     <span class="ident">readback::SolidReadback</span>,
     <span class="ident">request_for_fire::WarnOrder</span>,
-    <span class="ident">shot_fire</span>::{<span class="ident">Shot</span>, <span class="ident">Splash</span>},
+    <span class="ident">shot_fire</span>::{<span class="ident">RoundsComplete</span>, <span class="ident">Shot</span>, <span class="ident">Splash</span>},
 };
 
+<span class="doccomment">/// Represents messages that can be received from the FDC</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum</span> <span class="ident">FromFdcMessage</span> {
+    <span class="doccomment">/// A readback for a RRF</span>
     <span class="ident">RequestForFireConfirm</span>(<span class="ident">WarnOrder</span>),
+    <span class="doccomment">/// A Message to Observer, received after the FDC has received RFF</span>
     <span class="ident">MessageToObserver</span>(<span class="ident">MessageToObserver</span>),
+    <span class="doccomment">/// Shot Call</span>
     <span class="ident">Shot</span>(<span class="ident">Shot</span>),
+    <span class="doccomment">/// Splash Call</span>
     <span class="ident">Splash</span>(<span class="ident">Splash</span>),
+    <span class="doccomment">/// Rounds Complete Call</span>
+    <span class="ident">RoundsComplete</span>(<span class="ident">RoundsComplete</span>),
+    <span class="doccomment">/// Indicates a SolidReadback (A message was confirmed as readback correctly)</span>
+    <span class="doccomment">/// Primarily used for the readback of a MTO</span>
     <span class="ident">SolidReadback</span>(<span class="ident">SolidReadback</span>),
 }
 
+<span class="doccomment">/// Represents messages that can be sent to the FDC</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum</span> <span class="ident">ToFdcMessage</span> {
+    <span class="doccomment">/// The Request for Fire (RFF), the first message a FO will send the FDC to begin a fire mission</span>
     <span class="ident">RequestForFire</span>(<span class="ident">WarnOrder</span>),
+    <span class="doccomment">/// Readback for an MTO</span>
     <span class="ident">MessageToObserverConfirm</span>(<span class="ident">MessageToObserver</span>),
+    <span class="doccomment">/// Shot Readback</span>
     <span class="ident">ShotConfirm</span>(<span class="ident">Shot</span>),
+    <span class="doccomment">/// Splash Readback</span>
     <span class="ident">SplashConfirm</span>(<span class="ident">Splash</span>),
+    <span class="doccomment">/// RoundsComplete Readback</span>
+    <span class="ident">RoundsCompleteConfirm</span>(<span class="ident">RoundsComplete</span>),
+    <span class="doccomment">/// The Battle Damage Assessment (BDA), the last message a FO will send the FDC to end a fire mission</span>
     <span class="ident">BattleDamageAssessment</span>(<span class="ident">BattleDamageAssessment</span>),
+    <span class="doccomment">/// Indicates a SolidReadback (A message was confirmed as readback correctly)</span>
+    <span class="doccomment">/// Primarily used for the readback of a RRF or BDA</span>
     <span class="ident">SolidReadback</span>(<span class="ident">SolidReadback</span>),
 }
 </code></pre></div>

@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["main",""]],"mod":[["fo_fdc_commhandler",""],["state_machine",""]]});
+initSidebarItems({"fn":[["main","Entry function"]],"mod":[["fo_fdc_commhandler","Contains the message types that the FO sim can send/receive, as well as the communication tasks (send and receive)"],["state_machine","Provides the functions and enums for maintaining the FO state machine."]]});

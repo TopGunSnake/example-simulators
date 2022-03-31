@@ -50,28 +50,62 @@
 <span id="48">48</span>
 <span id="49">49</span>
 <span id="50">50</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">regex::Regex</span>;
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
+<span id="67">67</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Container module for Message to Observer definitions</span>
+
+<span class="kw">use</span> <span class="ident">regex::Regex</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Ammunition</span>;
 
+<span class="doccomment">/// The Message to Observer (MTO), sent by a FDC once the FDC has a response to an FO&#39;s RFF</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MessageToObserver</span> {
+    <span class="doccomment">/// The sender&#39;s callsign</span>
     <span class="kw">pub</span> <span class="ident">src</span>: <span class="ident">String</span>,
+    <span class="doccomment">/// The intended receiver&#39;s callsign</span>
     <span class="kw">pub</span> <span class="ident">receiver</span>: <span class="ident">String</span>,
+    <span class="doccomment">/// The target number for this fire mission</span>
     <span class="kw">pub</span> <span class="ident">target_number</span>: <span class="ident">TargetNumber</span>,
+    <span class="doccomment">/// The Ammunition in effect for this fire mission</span>
     <span class="kw">pub</span> <span class="ident">ammunition</span>: <span class="ident">Ammunition</span>,
+    <span class="doccomment">/// The number of rounds (a volley) for the fire mission</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The total number of rounds sent down range depend on the gun systems executing the fire mission</span>
     <span class="kw">pub</span> <span class="ident">rounds</span>: <span class="ident">u32</span>,
 }
 
+<span class="doccomment">/// Wrapper type for Target Numbers</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// All Target Numbers, when viewed as a string, match the regex `r&quot;[A-Z]{2}\d{4}$&quot;`, for example: AN2001.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TargetNumber</span> {
+    <span class="doccomment">/// The underlying string</span>
     <span class="ident">value</span>: <span class="ident">String</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">TargetNumber</span> {
     <span class="doccomment">/// Constructs a new TargetNumber instance, returning an error if the input does not match target number standards:</span>
     <span class="doccomment">/// [A-Z]{2}\d{4}</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Arguments</span>
+    <span class="doccomment">/// * `input` - a target number in raw format</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">regex_pattern</span>: <span class="ident">Regex</span> <span class="op">=</span> <span class="ident">regex::Regex::new</span>(<span class="string">r&quot;^[A-Z]{2}\d{4}$&quot;</span>).<span class="ident">unwrap</span>();
         <span class="kw">if</span> <span class="ident">regex_pattern</span>.<span class="ident">is_match</span>(<span class="ident">input</span>) {

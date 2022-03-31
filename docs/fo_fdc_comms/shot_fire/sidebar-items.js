@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Shot",""],["Splash",""]]});
+initSidebarItems({"struct":[["RoundsComplete","A Rounds Complete message, used by an FDC about 7 seconds after the last rounds are expected to impact."],["Shot","A Shot message, used by an FDC to indicate that rounds have started going down range."],["Splash","A Splash message, used by an FDC about 7 seconds before expected impact to indicate that the rounds should start hitting."]]});

@@ -110,13 +110,21 @@
 <span id="108">108</span>
 <span id="109">109</span>
 <span id="110">110</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::net::SocketAddrV4</span>;
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Container module for Request for Fire (RFF)</span>
+<span class="kw">use</span> <span class="ident">std::net::SocketAddrV4</span>;
 
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Ammunition</span>;
 
-<span class="doccomment">/// A complete request for fire</span>
+<span class="doccomment">/// A complete Request for Fire, the first message sent by a FO</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
 <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">deny_unknown_fields</span>, <span class="ident">rename_all</span> <span class="op">=</span> <span class="string">&quot;snake_case&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WarnOrder</span> {
@@ -140,13 +148,15 @@
     <span class="kw">pub</span> <span class="ident">method_of_fire</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">MethodOfFire</span><span class="op">&gt;</span>,
 }
 
-<span class="doccomment">/// Mission Types</span>
+<span class="doccomment">/// Potential Mission Types for a Request for Fire</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
 <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">rename_all</span> <span class="op">=</span> <span class="string">&quot;snake_case&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">MissionType</span> {
-    <span class="doccomment">/// Adjust Fire mission variant. Represents a fire mission that needs to use a series of adjustments to dial in.</span>
+    <span class="doccomment">/// Represents a fire mission that needs to use a series of adjustments to dial in.</span>
     <span class="ident">AdjustFire</span>,
-    <span class="doccomment">/// Fire For Effect mission variant. Once the FO confirms the FDC is accurate, and is certain that a full volley will have intended effect.</span>
+    <span class="doccomment">/// Represents a fire mission that does not need any adjustment.</span>
+    <span class="doccomment">/// Usually used once the FO confirms the FDC is accurate,</span>
+    <span class="doccomment">/// and is certain that a full volley will have intended effect.</span>
     <span class="ident">FireForEffect</span>,
 }
 
@@ -174,13 +184,17 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Default</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
 <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">rename_all</span> <span class="op">=</span> <span class="string">&quot;snake_case&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TargetDescription</span> {
+    <span class="doccomment">/// Type of target, e.g. &quot;tanks, infantry&quot;</span>
     <span class="kw">pub</span> <span class="ident">target_type</span>: <span class="ident">String</span>,
+    <span class="doccomment">/// Target activity, e.g. &quot;staging area&quot; or &quot;moving down MSR&quot;</span>
     <span class="kw">pub</span> <span class="ident">activity</span>: <span class="ident">String</span>,
+    <span class="doccomment">/// Number of Targets, e.g. &quot;10 tanks, several battalions&quot;</span>
     <span class="kw">pub</span> <span class="ident">numbers</span>: <span class="ident">String</span>,
+    <span class="doccomment">/// Protection of targets, e.g. &quot;dug in&quot; or &quot;out in open&quot;</span>
     <span class="kw">pub</span> <span class="ident">protection</span>: <span class="ident">String</span>,
 }
 
-<span class="doccomment">/// Method of fire</span>
+<span class="doccomment">/// The Method of Fire requested by the FO</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
 <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">rename_all</span> <span class="op">=</span> <span class="string">&quot;snake_case&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">MethodOfFire</span> {

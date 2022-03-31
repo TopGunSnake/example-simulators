@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["BattleDamageAssessment",""]]});
+initSidebarItems({"struct":[["BattleDamageAssessment","A Battle Damage Assessment, providing feedback to an FDC of the effect of a fire mission"]]});

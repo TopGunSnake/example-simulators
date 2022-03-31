@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["FromFdcMessage",""],["ToFdcMessage",""]]});
+initSidebarItems({"enum":[["FromFdcMessage","Represents messages that can be received from the FDC"],["ToFdcMessage","Represents messages that can be sent to the FDC"]]});

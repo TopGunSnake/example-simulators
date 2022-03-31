@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["MessageToObserver",""],["TargetNumber",""]]});
+initSidebarItems({"struct":[["MessageToObserver","The Message to Observer (MTO), sent by a FDC once the FDC has a response to an FO’s RFF"],["TargetNumber","Wrapper type for Target Numbers"]]});
