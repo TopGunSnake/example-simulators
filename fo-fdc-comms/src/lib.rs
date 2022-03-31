@@ -1,3 +1,4 @@
+//! The message definitions for the interface between an FO and an FDC.
 #![forbid(unused_imports)]
 
 use std::net::SocketAddrV4;
