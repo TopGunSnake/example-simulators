@@ -6,7 +6,7 @@
 use anyhow::Result;
 use fo_fdc_comms::{
     readback::SolidReadback,
-    shot_fire::{Shot, Splash},
+    shot_fire::{RoundsComplete, Shot, Splash},
 };
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tracing::{debug, info, info_span, instrument, trace, warn};
@@ -137,6 +137,8 @@ pub(crate) async fn state_machine_loop(
         let _enter = message_process_span.enter();
 
         match message {
+            // FDC Messages sent when the FO is requesting
+
             // Request for Fire Confirmation
             FromFdcMessage::RequestForFireConfirm(rff_readback) if state.is_requesting() => {
                 info!("Received a readback for Request for Fire. Evaluating...");
@@ -158,6 +160,8 @@ pub(crate) async fn state_machine_loop(
                     .expect("state was invalid for conversion");
             }
 
+            // FDC Messages sent when the FO is observing
+
             // Shot was received while Observing a Fire Mission
             FromFdcMessage::Shot(_msg) if state.is_observing() => {
                 info!("Received a Shot message, echoing...");
@@ -167,7 +171,12 @@ pub(crate) async fn state_machine_loop(
             FromFdcMessage::Splash(_msg) if state.is_observing() => {
                 info!("Received a Splash message, echoing...");
                 to_fdc.send(ToFdcMessage::SplashConfirm(Splash))?
-                //TODO: Start BDA send behavior
+            }
+            // RoundsComplete was received while Observing a Fire Mission
+            FromFdcMessage::RoundsComplete(_msg) if state.is_observing() => {
+                info!("Received a RoundsComplete message, echoing...");
+                to_fdc.send(ToFdcMessage::RoundsCompleteConfirm(RoundsComplete))?
+                //TODO: Transition to Reporting, and send a BDA
             }
 
             // UNEXPECTED MESSAGES
@@ -195,6 +204,12 @@ pub(crate) async fn state_machine_loop(
             FromFdcMessage::Splash(msg) => {
                 warn!(
                     "Received a Splash when in a state that does not expect a Splash: {:?}",
+                    msg
+                );
+            }
+            FromFdcMessage::RoundsComplete(msg) => {
+                warn!(
+                    "Received a RoundsComplete when in a state that does not expect a RoundsComplete: {:?}",
                     msg
                 );
             }

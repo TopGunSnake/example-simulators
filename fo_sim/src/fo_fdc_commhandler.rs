@@ -5,7 +5,7 @@ use fo_fdc_comms::{
     message_to_observer::MessageToObserver,
     readback::SolidReadback,
     request_for_fire::WarnOrder,
-    shot_fire::{Shot, Splash},
+    shot_fire::{RoundsComplete, Shot, Splash},
 };
 
 /// Represents messages that can be received from the FDC
@@ -19,6 +19,8 @@ pub(crate) enum FromFdcMessage {
     Shot(Shot),
     /// Splash Call
     Splash(Splash),
+    /// Rounds Complete Call
+    RoundsComplete(RoundsComplete),
     /// Indicates a SolidReadback (A message was confirmed as readback correctly)
     /// Primarily used for the readback of a MTO
     SolidReadback(SolidReadback),
@@ -35,6 +37,8 @@ pub(crate) enum ToFdcMessage {
     ShotConfirm(Shot),
     /// Splash Readback
     SplashConfirm(Splash),
+    /// RoundsComplete Readback
+    RoundsCompleteConfirm(RoundsComplete),
     /// The Battle Damage Assessment (BDA), the last message a FO will send the FDC to end a fire mission
     BattleDamageAssessment(BattleDamageAssessment),
     /// Indicates a SolidReadback (A message was confirmed as readback correctly)
