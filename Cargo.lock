@@ -43,6 +43,14 @@ name = "example-simulators"
 version = "0.1.0"
 
 [[package]]
+name = "fdc-gun-comms"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "fo-fdc-comms"
 version = "0.1.0"
 dependencies = [
