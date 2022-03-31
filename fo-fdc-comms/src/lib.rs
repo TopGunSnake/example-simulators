@@ -7,6 +7,7 @@ use tokio::net::UdpSocket;
 
 pub mod message_to_observer;
 pub mod request_for_fire;
+pub mod shot_fire;
 
 /// Ammunition types
 #[non_exhaustive]
