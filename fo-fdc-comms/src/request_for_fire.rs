@@ -1,10 +1,11 @@
+//! Container module for Request for Fire (RFF)
 use std::net::SocketAddrV4;
 
 use serde::{Deserialize, Serialize};
 
 use crate::Ammunition;
 
-/// A complete request for fire
+/// A complete Request for Fire, the first message sent by a FO
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct WarnOrder {
@@ -28,13 +29,15 @@ pub struct WarnOrder {
     pub method_of_fire: Option<MethodOfFire>,
 }
 
-/// Mission Types
+/// Potential Mission Types for a Request for Fire
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MissionType {
-    /// Adjust Fire mission variant. Represents a fire mission that needs to use a series of adjustments to dial in.
+    /// Represents a fire mission that needs to use a series of adjustments to dial in.
     AdjustFire,
-    /// Fire For Effect mission variant. Once the FO confirms the FDC is accurate, and is certain that a full volley will have intended effect.
+    /// Represents a fire mission that does not need any adjustment.
+    /// Usually used once the FO confirms the FDC is accurate,
+    /// and is certain that a full volley will have intended effect.
     FireForEffect,
 }
 
@@ -62,13 +65,17 @@ pub enum TargetLocation {
 #[derive(Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct TargetDescription {
+    /// Type of target, e.g. "tanks, infantry"
     pub target_type: String,
+    /// Target activity, e.g. "staging area" or "moving down MSR"
     pub activity: String,
+    /// Number of Targets, e.g. "10 tanks, several battalions"
     pub numbers: String,
+    /// Protection of targets, e.g. "dug in" or "out in open"
     pub protection: String,
 }
 
-/// Method of fire
+/// The Method of Fire requested by the FO
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MethodOfFire {

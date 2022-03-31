@@ -1,10 +1,15 @@
+//! Provides the functions and enums for maintaining the FO state machine.
+//!
+//! The FO State Machine uses the top level [`FoState`] for representing the state of the FO.
+//! The workhorse of this module, and the intended component for use is the [`state_machine_loop`],
+//! which provides an `async` function for use in a runtime.
 use anyhow::Result;
 use fo_fdc_comms::{
     readback::SolidReadback,
     shot_fire::{Shot, Splash},
 };
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use tracing::{debug, info, info_span, instrument, warn};
+use tracing::{debug, info, info_span, instrument, trace, warn};
 
 use crate::fo_fdc_commhandler::{FromFdcMessage, ToFdcMessage};
 
@@ -13,9 +18,13 @@ use crate::fo_fdc_commhandler::{FromFdcMessage, ToFdcMessage};
 /// A FO is either offline (with no FDC to talk to), or connected to an FDC.
 #[derive(Debug, PartialEq)]
 pub(crate) enum FoState {
+    /// State representing when the FO is not attached to an FDC.
     Offline,
+    /// State representing when the FO is attached to an FDC.
     Connected {
+        /// The callsign of the FDC that the FO is connected to.
         attached_fdc: String,
+        /// The current state of the FO while connected.
         state: ConnectedState,
     },
 }
@@ -59,7 +68,7 @@ impl FoState {
         )
     }
 
-    /// Changes the fo state to [`Observing`].
+    /// Tries to change the internal [`ConnectedState`] to [`Observing`].
     ///
     /// [`Observing`]: ConnectedState::Observing
     pub(crate) fn try_to_observing(self) -> Option<Self> {
@@ -84,16 +93,20 @@ impl FoState {
 /// observing fires, or reporting a battle assessment
 #[derive(Debug, PartialEq)]
 pub(crate) enum ConnectedState {
+    /// State representing when the FO is standing by, before requesting fires.
     Standby,
+    /// State representing when the FO is requesting fires.
     Requesting,
+    /// State representing when the FO is observing fires after receiving a MTO.
     Observing,
+    /// State representing when the FO has finished observing, and is reporting a BDA back to the FDC.
     Reporting,
 }
 
 impl ConnectedState {
-    /// Changes the connected state to [`Observing`].
+    /// Changes the [`ConnectedState`] to [`Observing`].
     ///
-    /// [`Observing`]: Self::Observing
+    /// [`Observing`]: ConnectedState::Observing
     pub(crate) fn into_observing(self) -> Self {
         Self::Observing
     }
@@ -101,8 +114,14 @@ impl ConnectedState {
 
 /// Asynchronous executor loop for managing the state machine.
 ///
-/// All state manipulation happens within the context of this Future.
+/// All state manipulation happens within the context of this function.
+/// In the event a message is received that is not expected, the state machine will not change state,
+/// but will emit a [`tracing::warn!`] event.
 ///
+/// # Arguments
+///
+/// * `message_queue` - The receive side of a channel for processing the state machine with messages from the FDC.
+/// * `to_fdc` - The send side of a channel where messages to send to the FDC are sent by the state machine loop.
 #[instrument]
 pub(crate) async fn state_machine_loop(
     mut message_queue: UnboundedReceiver<FromFdcMessage>,
@@ -114,12 +133,16 @@ pub(crate) async fn state_machine_loop(
     // Receive messages from the queue until the senders close.
     // Once the senders close, this expression will return `None`.
     while let Some(message) = message_queue.recv().await {
-        debug!("Received message: {:?}", message);
+        trace!("Received message: {:?}", message);
         let _enter = message_process_span.enter();
+
         match message {
             // Request for Fire Confirmation
             FromFdcMessage::RequestForFireConfirm(rff_readback) if state.is_requesting() => {
+                info!("Received a readback for Request for Fire. Evaluating...");
+                debug!("RFF Readback: {:?}", rff_readback);
                 //TODO: Proccess any errors
+                info!("Readback confirmed, sending SolidReadback...");
                 to_fdc.send(ToFdcMessage::SolidReadback(SolidReadback))?
             }
             // MTO Received while Requesting a Fire Mission
@@ -137,17 +160,17 @@ pub(crate) async fn state_machine_loop(
 
             // Shot was received while Observing a Fire Mission
             FromFdcMessage::Shot(_msg) if state.is_observing() => {
-                info!("Received a Shot message");
+                info!("Received a Shot message, echoing...");
                 to_fdc.send(ToFdcMessage::ShotConfirm(Shot))?
             }
             // Splash was received while Observing a Fire Mission
             FromFdcMessage::Splash(_msg) if state.is_observing() => {
-                info!("Received a Splash message");
+                info!("Received a Splash message, echoing...");
                 to_fdc.send(ToFdcMessage::SplashConfirm(Splash))?
                 //TODO: Start BDA send behavior
             }
 
-            // Unexpected Messages
+            // UNEXPECTED MESSAGES
             FromFdcMessage::RequestForFireConfirm(rff_readback) => {
                 warn!(
                     "Received a readback for RFF when in a state that does not expect an RFF: {:?}",
