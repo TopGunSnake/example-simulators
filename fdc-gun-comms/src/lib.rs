@@ -4,6 +4,8 @@
 //! Raw Bytes (`Vec<u8>`) <-> [`FdcGunMessage`] with bytes and a message ID,
 //! and finally specific message instances with respective strong types.
 
+pub mod messages;
+
 /// High-level message definition.
 ///
 /// Intended to be used as an intermediate between raw bytes and a specific strongly typed message
@@ -62,8 +64,6 @@ pub enum FdcGunMessageId {
     /// A general compliance response from a gun
     ComplianceResponse = 0x00,
 }
-
-pub mod messages;
 
 #[cfg(test)]
 mod tests {
