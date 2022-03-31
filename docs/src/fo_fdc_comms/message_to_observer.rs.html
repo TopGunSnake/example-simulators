@@ -55,16 +55,16 @@
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Ammunition</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MessageToObserver</span> {
-    <span class="ident">src</span>: <span class="ident">String</span>,
-    <span class="ident">receiver</span>: <span class="ident">String</span>,
-    <span class="ident">target_number</span>: <span class="ident">TargetNumber</span>,
-    <span class="ident">ammunition</span>: <span class="ident">Ammunition</span>,
-    <span class="ident">rounds</span>: <span class="ident">u32</span>,
+    <span class="kw">pub</span> <span class="ident">src</span>: <span class="ident">String</span>,
+    <span class="kw">pub</span> <span class="ident">receiver</span>: <span class="ident">String</span>,
+    <span class="kw">pub</span> <span class="ident">target_number</span>: <span class="ident">TargetNumber</span>,
+    <span class="kw">pub</span> <span class="ident">ammunition</span>: <span class="ident">Ammunition</span>,
+    <span class="kw">pub</span> <span class="ident">rounds</span>: <span class="ident">u32</span>,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TargetNumber</span> {
     <span class="ident">value</span>: <span class="ident">String</span>,
 }

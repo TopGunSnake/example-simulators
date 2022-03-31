@@ -58,6 +58,9 @@
 <span id="56">56</span>
 <span id="57">57</span>
 <span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">forbid</span>(<span class="ident">unused_imports</span>)]</span>
 
 <span class="kw">use</span> <span class="ident">std::net::SocketAddrV4</span>;
@@ -65,8 +68,11 @@
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">tokio::net::UdpSocket</span>;
 
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">battle_damage_assessment</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">message_to_observer</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">readback</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">request_for_fire</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">shot_fire</span>;
 
 <span class="doccomment">/// Ammunition types</span>
 <span class="attribute">#[<span class="ident">non_exhaustive</span>]</span>

@@ -1,1 +1,1 @@
-window.ALL_CRATES = ["example_simulators","fo_fdc_comms"];
+window.ALL_CRATES = ["example_simulators","fo_fdc_comms","fo_sim"];
