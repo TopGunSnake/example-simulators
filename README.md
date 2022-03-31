@@ -66,6 +66,21 @@ stateDiagram-v2
 
 This sim emulates a Forward Observer, who sends requests to the FDC for a fire mission.
 
+```mermaid
+stateDiagram-v2
+    [*] --> Offline
+    Offline --> Connected: Attach to FDC
+    state Connected {
+        [*] --> Standby
+        Standby --> Requesting: fires needed
+        Requesting --> Observing: MTO received
+        Observing --> Reporting: Rounds Complete
+        Reporting --> Standby: BDA sent
+    }
+    Connected --> Offline: Detach from FDC
+    Offline --> [*]
+```
+
 ## Interfaces
 
 ### FDC - Gun Interface
@@ -142,7 +157,7 @@ At this point, the FO has finished the request for fire, and the FDC will take c
 }
 ```
 
-In summary:
+In summary, the actions performed during the Requesting stage are:
 
 ```mermaid
 
@@ -173,5 +188,32 @@ sequenceDiagram
     deactivate FO
     deactivate FDC
     Note over FO, FDC: Shot Execution based on RRF
+```
 
+After MTO, the FDC will execute fires:
+
+```mermaid
+sequenceDiagram
+    FDC ->> FO: Shot
+    FO -->> FDC: Shot
+    FDC ->> FO: Splash
+    FO -->> FDC: Splash
+    FDC ->> FO: Rounds Complete
+    FO -->> FDC: Rounds Complete
+    Note over FO, FDC: FO Proceeds to BDA
+```
+
+After Rounds Complete, the FO will process the result of the mission, and send a Battle Damage Assessment (BDA) back to the FDC.
+
+```mermaid
+sequenceDiagram
+    FO ->> FDC: BDA
+    loop
+        FDC -->> FO: BDA Readback
+        alt BDA Readback error
+            FO -->> FDC: Correction
+        else BDA Readback confirmed
+            FO -->> FDC: Solid Readback
+        end
+    end
 ```
