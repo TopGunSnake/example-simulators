@@ -1,8 +1,12 @@
 use anyhow::Result;
-use tokio::sync::mpsc::UnboundedReceiver;
+use fo_fdc_comms::{
+    readback::SolidReadback,
+    shot_fire::{Shot, Splash},
+};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tracing::{debug, info, info_span, instrument, warn};
 
-use crate::fo_fdc_commhandler::FoMessage;
+use crate::fo_fdc_commhandler::{FromFdcMessage, ToFdcMessage};
 
 /// Representation of the top-level state of a Forward Observer
 ///
@@ -101,7 +105,8 @@ impl ConnectedState {
 ///
 #[instrument]
 pub(crate) async fn state_machine_loop(
-    mut message_queue: UnboundedReceiver<FoMessage>,
+    mut message_queue: UnboundedReceiver<FromFdcMessage>,
+    to_fdc: UnboundedSender<ToFdcMessage>,
 ) -> Result<()> {
     let mut state = FoState::Offline;
     let message_process_span = info_span!("message_process");
@@ -112,37 +117,59 @@ pub(crate) async fn state_machine_loop(
         debug!("Received message: {:?}", message);
         let _enter = message_process_span.enter();
         match message {
+            // Request for Fire Confirmation
+            FromFdcMessage::RequestForFireConfirm(rff_readback) if state.is_requesting() => {
+                //TODO: Proccess any errors
+                to_fdc.send(ToFdcMessage::SolidReadback(SolidReadback))?
+            }
             // MTO Received while Requesting a Fire Mission
-            FoMessage::MessageToObserver(_mto) if state.is_requesting() => {
-                info!("Received the MTO, transitioning to Observing");
+            FromFdcMessage::MessageToObserver(mto) if state.is_requesting() => {
+                info!("Received the MTO, reading back to FDC");
+                to_fdc.send(ToFdcMessage::MessageToObserverConfirm(mto))?;
+            }
+            // Solid Readback received while requesting a Fire Mission
+            FromFdcMessage::SolidReadback(_) if state.is_requesting() => {
+                info!("Received a solid readback message. Transitioning to observing.");
                 state = state
                     .try_to_observing()
                     .expect("state was invalid for conversion");
             }
 
             // Shot was received while Observing a Fire Mission
-            FoMessage::Shot(_msg) if state.is_observing() => {
+            FromFdcMessage::Shot(_msg) if state.is_observing() => {
                 info!("Received a Shot message");
+                to_fdc.send(ToFdcMessage::ShotConfirm(Shot))?
             }
             // Splash was received while Observing a Fire Mission
-            FoMessage::Splash(_msg) if state.is_observing() => {
+            FromFdcMessage::Splash(_msg) if state.is_observing() => {
                 info!("Received a Splash message");
+                to_fdc.send(ToFdcMessage::SplashConfirm(Splash))?
+                //TODO: Start BDA send behavior
             }
 
             // Unexpected Messages
-            FoMessage::MessageToObserver(mto) => {
+            FromFdcMessage::RequestForFireConfirm(rff_readback) => {
+                warn!(
+                    "Received a readback for RFF when in a state that does not expect an RFF: {:?}",
+                    rff_readback
+                );
+            }
+            FromFdcMessage::MessageToObserver(mto) => {
                 warn!(
                     "Received an MTO when in a state that does not expect an MTO: {:?}",
                     mto
                 );
             }
-            FoMessage::Shot(msg) => {
+            FromFdcMessage::SolidReadback(msg) => {
+                warn!("Received a solid readback when in a state that does not expect a solid readback: {:?}", msg);
+            }
+            FromFdcMessage::Shot(msg) => {
                 warn!(
                     "Received a Shot when in a state that does not expect a Shot: {:?}",
                     msg
                 );
             }
-            FoMessage::Splash(msg) => {
+            FromFdcMessage::Splash(msg) => {
                 warn!(
                     "Received a Splash when in a state that does not expect a Splash: {:?}",
                     msg

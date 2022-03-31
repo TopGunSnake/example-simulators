@@ -5,7 +5,9 @@ use std::net::SocketAddrV4;
 use serde::{Deserialize, Serialize};
 use tokio::net::UdpSocket;
 
+pub mod battle_damage_assessment;
 pub mod message_to_observer;
+pub mod readback;
 pub mod request_for_fire;
 pub mod shot_fire;
 
