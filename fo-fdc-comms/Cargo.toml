@@ -3,6 +3,7 @@ name = "fo-fdc-comms"
 version = "0.1.0"
 edition = "2021"
 description = "Provides the JSON over UDP behavior for FO-FDC communication"
+publish = false
 
 [dependencies]
 serde = { version = "1.0.136", features = ["derive"] }

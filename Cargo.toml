@@ -2,6 +2,7 @@
 name = "example-simulators"
 version = "0.1.0"
 edition = "2021"
+publish = false
 
 [workspace]
 members = ["fo_sim", "fo-fdc-comms"]
