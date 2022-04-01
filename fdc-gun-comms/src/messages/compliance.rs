@@ -1,6 +1,7 @@
 //! Contains definitions of [`Compliance`]
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[repr(u8)]
 pub enum Compliance {
     CANTCO = 0x01,
     WILLCO = 0x02,
