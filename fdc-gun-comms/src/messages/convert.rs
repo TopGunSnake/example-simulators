@@ -15,8 +15,11 @@ use super::{
 #[derive(Error, Debug)]
 pub enum MessageConvertError {
     /// Indicates that the message ID from the data does not match the type the data is being converted into
-    #[error("The message ID does not match the type")]
-    IdMismatch,
+    #[error("The message ID {intended:?} does not match the expected {expected:?}")]
+    IdMismatch {
+        intended: crate::FdcGunMessageId,
+        expected: crate::FdcGunMessageId,
+    },
     /// Indicates that the message data is missing parts needed to construct the strongly-typed message
     #[error("The message is missing data needed for conversion")]
     MissingData,
@@ -39,7 +42,10 @@ impl TryFrom<FdcGunMessage> for StatusRequest {
 
     fn try_from(message: FdcGunMessage) -> Result<Self, Self::Error> {
         if message.message_id != crate::FdcGunMessageId::StatusRequest {
-            Err(MessageConvertError::IdMismatch)
+            Err(MessageConvertError::IdMismatch {
+                intended: message.message_id,
+                expected: crate::FdcGunMessageId::StatusRequest,
+            })
         } else {
             Ok(Self {})
         }
@@ -73,7 +79,10 @@ impl TryFrom<FdcGunMessage> for StatusReply {
 
     fn try_from(message: FdcGunMessage) -> Result<Self, Self::Error> {
         if message.message_id != crate::FdcGunMessageId::StatusReply {
-            Err(MessageConvertError::IdMismatch)
+            Err(MessageConvertError::IdMismatch {
+                intended: message.message_id,
+                expected: crate::FdcGunMessageId::StatusReply,
+            })
         } else {
             // Unpack the first byte into a Status
             let status = Status::try_from(
@@ -163,7 +172,10 @@ impl TryFrom<FdcGunMessage> for ComplianceResponse {
 
     fn try_from(message: FdcGunMessage) -> Result<Self, Self::Error> {
         if message.message_id != crate::FdcGunMessageId::ComplianceResponse {
-            Err(MessageConvertError::IdMismatch)
+            Err(MessageConvertError::IdMismatch {
+                intended: message.message_id,
+                expected: crate::FdcGunMessageId::ComplianceResponse,
+            })
         } else {
             let compliance = message
                 .message_contents
