@@ -5,12 +5,15 @@
 //!
 //! [`FdcGunMessage`]: super::FdcGunMessage
 
-use status::{Ammunition, Status};
 use std::collections::HashMap;
 
+pub mod compliance;
 pub mod convert;
 pub mod ops;
 pub mod status;
+
+use compliance::Compliance;
+use status::{Ammunition, Status};
 
 /// A Request for status
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -34,5 +37,7 @@ pub struct FireCommand {}
 #[derive(Debug, Default)]
 pub struct CheckFire {}
 
-#[derive(Debug, Default)]
-pub struct ComplianceResponse {}
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ComplianceResponse {
+    compliance: Compliance,
+}

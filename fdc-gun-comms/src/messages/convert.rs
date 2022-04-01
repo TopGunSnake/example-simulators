@@ -139,16 +139,32 @@ impl TryFrom<FdcGunMessage> for CheckFire {
 }
 
 impl From<ComplianceResponse> for FdcGunMessage {
-    fn from(_: ComplianceResponse) -> Self {
-        todo!()
+    fn from(compliance_response: ComplianceResponse) -> Self {
+        let message_contents = vec![compliance_response.compliance as u8];
+        Self {
+            message_id: crate::FdcGunMessageId::ComplianceResponse,
+            message_contents,
+        }
     }
 }
 
 impl TryFrom<FdcGunMessage> for ComplianceResponse {
     type Error = MessageConvertError;
 
-    fn try_from(value: FdcGunMessage) -> Result<Self, Self::Error> {
-        todo!()
+    fn try_from(message: FdcGunMessage) -> Result<Self, Self::Error> {
+        if message.message_id != crate::FdcGunMessageId::ComplianceResponse {
+            Err(MessageConvertError)
+        } else {
+            let compliance = message
+                .message_contents
+                .get(0)
+                .ok_or(MessageConvertError)?
+                .to_owned()
+                .try_into()
+                .map_err(|_| MessageConvertError)?;
+
+            Ok(Self { compliance })
+        }
     }
 }
 
@@ -164,7 +180,7 @@ mod tests {
     #[test]
     fn test_conversion_properties() {
         // test_type(CheckFire::default());
-        // test_type(ComplianceResponse::default());
+        test_type(ComplianceResponse::default());
         // test_type(FireCommand::default());
         // test_type(FireReport::default());
         test_type(StatusReply::default());
