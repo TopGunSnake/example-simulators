@@ -87,25 +87,65 @@ stateDiagram-v2
 
 The FDC interacts with each Gun via a TCP interface. The FDC acts as a TCP Server, and each gun will attempt to register with their connected FDC on the listening socket.
 
-The interface is a simple message header stream, with little-endian format. Each message will contain a header indicating the size of the message to follow:
+The interface is a simple message header stream. Unless otherwise specified, each table represents the data in order from beginning to end. Each message will contain a header indicating the size of the message to follow:
 
 | Message Field | Description | Size |
 | --- | --- | --- |
 | Header | Number of bytes that the message contains | 4 bytes |
 | Message ID | ID Specific to each message type | 1 bytes |
-| Message | Message contents | n bytes |
+| Message | Message contents | variable |
 
 The message field can contain the following possible messages:
 
 | MessageType | Message ID | Length | Description |
 | --- | --- | --- | --- |
-| StatusRequest | | | Requests a status from the Gun |
-| StatusReply | | | The reply to a StatusRequest |
-| Fire | | | Request the Gun to fire at the specified target, with specified ammunition |
-| CheckFire | | | Requests the Gun to checkfire a current fire mission |
-| ComplianceResponse | | | Response message for Fire and CheckFire |
+| ComplianceResponse | 0x00 | 1 byte | Response message for Fire and CheckFire |
+| FireReport | 0x01 | | A report that rounds have been fired, as well as the time until on-target |
+| StatusRequest | 0x02 | 0 bytes | Requests a status from the Gun |
+| StatusReply | 0x03 | variable | The reply to a StatusRequest |
+| FireCommand | 0x05 | | Request the Gun to fire at the specified target, with specified ammunition |
+| CheckFire | 0x06 | | Requests the Gun to checkfire a current fire mission |
 
-TODO: Define message types
+#### Status Request
+
+A request for a Status Reply from a Gun.
+This message is unique, as it contains a 0-length message.
+
+#### Status Reply
+
+A reply to a Status Request, sent from a Gun.
+
+| Field |Size | Representation |
+| --- | --- | --- |
+| Status | 1 byte | enumeration |
+| Ammunition Status | 5 x n bytes | n submessages |
+
+##### Status Enumeration
+
+| Status | Value |
+| --- | --- |
+| Non-operational | 0x00 |
+| Partial Operational | 0x01 |
+| Fully Operational | 0x02 |
+
+##### Ammunition Status
+
+A map of ammunition to count, as 5-byte blocks.
+
+| Field | Size | Representation |
+| --- | --- | --- |
+| Ammunition | 1 byte | enumeration |
+| Count | 4 bytes | unsigned 32-bit integer (big-endian) |
+
+###### Ammunition Enumeration
+
+| Ammunition | Value |
+| --- | --- |
+| High Explosive | 0x00 |
+
+#### Fire Command
+
+A Fire Command originates from an FDC, and tells a specific gun the target for fires, the ammunition for use, and
 
 ### FO - FDC Interface
 
