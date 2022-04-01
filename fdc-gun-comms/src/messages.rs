@@ -12,7 +12,8 @@ pub mod convert;
 pub mod ops;
 pub mod status;
 
-#[derive(Debug, Default)]
+/// A Request for status
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct StatusRequest {}
 
 /// A Reply to a status request

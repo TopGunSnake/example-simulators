@@ -16,16 +16,23 @@ use super::{
 pub struct MessageConvertError;
 
 impl From<StatusRequest> for FdcGunMessage {
-    fn from(_: StatusRequest) -> Self {
-        todo!()
+    fn from(_status_request: StatusRequest) -> Self {
+        Self {
+            message_id: crate::FdcGunMessageId::StatusRequest,
+            message_contents: Vec::with_capacity(0),
+        }
     }
 }
 
 impl TryFrom<FdcGunMessage> for StatusRequest {
     type Error = MessageConvertError;
 
-    fn try_from(value: FdcGunMessage) -> Result<Self, Self::Error> {
-        todo!()
+    fn try_from(message: FdcGunMessage) -> Result<Self, Self::Error> {
+        if message.message_id != crate::FdcGunMessageId::StatusRequest {
+            Err(MessageConvertError)
+        } else {
+            Ok(Self {})
+        }
     }
 }
 
@@ -161,7 +168,7 @@ mod tests {
         // test_type(FireCommand::default());
         // test_type(FireReport::default());
         test_type(StatusReply::default());
-        // test_type(StatusRequest::default());
+        test_type(StatusRequest::default());
     }
 
     fn test_type<T>(input: T)
