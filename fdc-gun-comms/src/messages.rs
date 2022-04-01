@@ -5,14 +5,24 @@
 //!
 //! [`FdcGunMessage`]: super::FdcGunMessage
 
+use status::{Ammunition, Status};
+use std::collections::HashMap;
+
 pub mod convert;
 pub mod ops;
+pub mod status;
 
 #[derive(Debug, Default)]
 pub struct StatusRequest {}
 
+/// A Reply to a status request
 #[derive(Debug, Default)]
-pub struct StatusReply {}
+pub struct StatusReply {
+    /// High-level status
+    status: Status,
+    /// Rounds available
+    rounds: HashMap<Ammunition, u32>,
+}
 
 #[derive(Debug, Default)]
 pub struct FireReport {}

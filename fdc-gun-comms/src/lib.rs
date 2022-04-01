@@ -46,7 +46,7 @@ impl From<FdcGunMessage> for Vec<u8> {
 /// Message ID Values for FDC-Gun messages
 ///
 /// Limited to one byte
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FdcGunMessageId {
     /// A request for a gun to report its status
     StatusRequest = 0x02,
