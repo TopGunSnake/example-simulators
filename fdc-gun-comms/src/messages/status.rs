@@ -1,3 +1,6 @@
+//! Contains status enumerations, such as Ammunition types, Gun status,
+
+/// The Ammunition types a Gun can fire
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Ammunition {
@@ -21,11 +24,15 @@ impl From<Ammunition> for u8 {
     }
 }
 
+/// The status of the gun
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum Status {
+    /// Non-operational if no ammunition or other mission-critical fault
     NonOperational,
+    /// Partial operational capability, if less than minimum ammunition counts, or non-mission-critical fault
     PartialOperational,
+    /// Full operational status
     Operational,
 }
 

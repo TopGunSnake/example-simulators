@@ -11,9 +11,19 @@ use super::{
     CheckFire, ComplianceResponse, FireCommand, FireReport, StatusReply, StatusRequest,
 };
 
+///
 #[derive(Error, Debug)]
-#[error("Failed to convert")]
-pub struct MessageConvertError;
+pub enum MessageConvertError {
+    /// Indicates that the message ID from the data does not match the type the data is being converted into
+    #[error("The message ID does not match the type")]
+    IdMismatch,
+    /// Indicates that the message data is missing parts needed to construct the strongly-typed message
+    #[error("The message is missing data needed for conversion")]
+    MissingData,
+    /// Indicates that the data in the message is invalid
+    #[error("The message contains invalid data")]
+    InvalidData,
+}
 
 impl From<StatusRequest> for FdcGunMessage {
     fn from(_status_request: StatusRequest) -> Self {
@@ -29,7 +39,7 @@ impl TryFrom<FdcGunMessage> for StatusRequest {
 
     fn try_from(message: FdcGunMessage) -> Result<Self, Self::Error> {
         if message.message_id != crate::FdcGunMessageId::StatusRequest {
-            Err(MessageConvertError)
+            Err(MessageConvertError::IdMismatch)
         } else {
             Ok(Self {})
         }
@@ -63,17 +73,17 @@ impl TryFrom<FdcGunMessage> for StatusReply {
 
     fn try_from(message: FdcGunMessage) -> Result<Self, Self::Error> {
         if message.message_id != crate::FdcGunMessageId::StatusReply {
-            Err(MessageConvertError)
+            Err(MessageConvertError::IdMismatch)
         } else {
             // Unpack the first byte into a Status
             let status = Status::try_from(
                 message
                     .message_contents
                     .get(0)
-                    .ok_or(MessageConvertError)?
+                    .ok_or(MessageConvertError::MissingData)?
                     .to_owned(),
             )
-            .map_err(|_| MessageConvertError)?;
+            .map_err(|_| MessageConvertError::InvalidData)?;
 
             // Unpack each 5 bytes after into an Ammunition, Count pair, and collect
             // into a HashMap
@@ -153,15 +163,15 @@ impl TryFrom<FdcGunMessage> for ComplianceResponse {
 
     fn try_from(message: FdcGunMessage) -> Result<Self, Self::Error> {
         if message.message_id != crate::FdcGunMessageId::ComplianceResponse {
-            Err(MessageConvertError)
+            Err(MessageConvertError::IdMismatch)
         } else {
             let compliance = message
                 .message_contents
                 .get(0)
-                .ok_or(MessageConvertError)?
+                .ok_or(MessageConvertError::MissingData)?
                 .to_owned()
                 .try_into()
-                .map_err(|_| MessageConvertError)?;
+                .map_err(|_| MessageConvertError::InvalidData)?;
 
             Ok(Self { compliance })
         }
