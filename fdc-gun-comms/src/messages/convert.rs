@@ -166,11 +166,15 @@ mod tests {
 
     fn test_type<T>(input: T)
     where
-        T: Into<FdcGunMessage> + std::convert::TryFrom<FdcGunMessage> + std::fmt::Debug,
+        T: Into<FdcGunMessage>
+            + std::convert::TryFrom<FdcGunMessage>
+            + std::fmt::Debug
+            + std::cmp::PartialEq
+            + Clone,
         <T as std::convert::TryFrom<FdcGunMessage>>::Error: std::fmt::Debug,
     {
-        let message: FdcGunMessage = input.into();
+        let message: FdcGunMessage = input.clone().into();
         let output: T = message.try_into().unwrap();
-        // assert_eq!(input, output);
+        assert_eq!(input, output);
     }
 }

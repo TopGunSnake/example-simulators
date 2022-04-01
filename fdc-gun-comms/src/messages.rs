@@ -16,7 +16,7 @@ pub mod status;
 pub struct StatusRequest {}
 
 /// A Reply to a status request
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct StatusReply {
     /// High-level status
     status: Status,

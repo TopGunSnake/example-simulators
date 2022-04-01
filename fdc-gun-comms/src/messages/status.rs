@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Ammunition {
     HighExplosive,
 }
@@ -20,7 +20,7 @@ impl From<Ammunition> for u8 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Status {
     NonOperational,
     PartialOperational,
