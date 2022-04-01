@@ -4,14 +4,14 @@ use std::collections::HashMap;
 
 use thiserror::Error;
 
-use crate::FdcGunMessage;
+use crate::{FdcGunMessage, FdcGunMessageId};
 
 use super::{
     status::{Ammunition, Status},
     CheckFire, ComplianceResponse, FireCommand, FireReport, StatusReply, StatusRequest,
 };
 
-///
+/// Error type for converting from an [`FdcGunMessage`] to [`StatusRequest`]
 #[derive(Error, Debug)]
 pub enum MessageConvertError {
     /// Indicates that the message ID from the data does not match the type the data is being converted into
@@ -28,6 +28,20 @@ pub enum MessageConvertError {
     InvalidData,
 }
 
+fn check_id(
+    message_id: FdcGunMessageId,
+    expected: FdcGunMessageId,
+) -> Result<(), MessageConvertError> {
+    if message_id != expected {
+        Err(MessageConvertError::IdMismatch {
+            intended: message_id,
+            expected,
+        })
+    } else {
+        Ok(())
+    }
+}
+
 impl From<StatusRequest> for FdcGunMessage {
     fn from(_status_request: StatusRequest) -> Self {
         Self {
@@ -41,14 +55,11 @@ impl TryFrom<FdcGunMessage> for StatusRequest {
     type Error = MessageConvertError;
 
     fn try_from(message: FdcGunMessage) -> Result<Self, Self::Error> {
-        if message.message_id != crate::FdcGunMessageId::StatusRequest {
-            Err(MessageConvertError::IdMismatch {
-                intended: message.message_id,
-                expected: crate::FdcGunMessageId::StatusRequest,
-            })
-        } else {
-            Ok(Self {})
-        }
+        const MESSAGE_ID: FdcGunMessageId = FdcGunMessageId::StatusRequest;
+
+        check_id(message.message_id, MESSAGE_ID)?;
+
+        Ok(Self {})
     }
 }
 
@@ -78,40 +89,36 @@ impl TryFrom<FdcGunMessage> for StatusReply {
     type Error = MessageConvertError;
 
     fn try_from(message: FdcGunMessage) -> Result<Self, Self::Error> {
-        if message.message_id != crate::FdcGunMessageId::StatusReply {
-            Err(MessageConvertError::IdMismatch {
-                intended: message.message_id,
-                expected: crate::FdcGunMessageId::StatusReply,
+        const MESSAGE_ID: FdcGunMessageId = FdcGunMessageId::StatusReply;
+
+        check_id(message.message_id, MESSAGE_ID)?;
+
+        // Unpack the first byte into a Status
+        let status = Status::try_from(
+            message
+                .message_contents
+                .get(0)
+                .ok_or(MessageConvertError::MissingData)?
+                .to_owned(),
+        )
+        .map_err(|_| MessageConvertError::InvalidData)?;
+
+        // Unpack each 5 bytes after into an Ammunition, Count pair, and collect
+        // into a HashMap
+        let rounds = message.message_contents[1..]
+            .chunks_exact(1 + 5)
+            .map(|key_value| {
+                let ammunition = Ammunition::try_from(key_value[0]).expect("Ammunition is unknown");
+                let count = u32::from_be_bytes(
+                    key_value[1..]
+                        .try_into()
+                        .expect("Chunk was incorrectly sized"),
+                );
+
+                (ammunition, count)
             })
-        } else {
-            // Unpack the first byte into a Status
-            let status = Status::try_from(
-                message
-                    .message_contents
-                    .get(0)
-                    .ok_or(MessageConvertError::MissingData)?
-                    .to_owned(),
-            )
-            .map_err(|_| MessageConvertError::InvalidData)?;
-
-            // Unpack each 5 bytes after into an Ammunition, Count pair, and collect
-            // into a HashMap
-            let rounds = message.message_contents[1..]
-                .chunks_exact(1 + 5)
-                .map(|key_value| {
-                    let ammunition =
-                        Ammunition::try_from(key_value[0]).expect("Ammunition is unknown");
-                    let count = u32::from_be_bytes(
-                        key_value[1..]
-                            .try_into()
-                            .expect("Chunk was incorrectly sized"),
-                    );
-
-                    (ammunition, count)
-                })
-                .collect::<HashMap<Ammunition, u32>>();
-            Ok(Self { status, rounds })
-        }
+            .collect::<HashMap<Ammunition, u32>>();
+        Ok(Self { status, rounds })
     }
 }
 
@@ -171,22 +178,19 @@ impl TryFrom<FdcGunMessage> for ComplianceResponse {
     type Error = MessageConvertError;
 
     fn try_from(message: FdcGunMessage) -> Result<Self, Self::Error> {
-        if message.message_id != crate::FdcGunMessageId::ComplianceResponse {
-            Err(MessageConvertError::IdMismatch {
-                intended: message.message_id,
-                expected: crate::FdcGunMessageId::ComplianceResponse,
-            })
-        } else {
-            let compliance = message
-                .message_contents
-                .get(0)
-                .ok_or(MessageConvertError::MissingData)?
-                .to_owned()
-                .try_into()
-                .map_err(|_| MessageConvertError::InvalidData)?;
+        const MESSAGE_ID: FdcGunMessageId = FdcGunMessageId::ComplianceResponse;
 
-            Ok(Self { compliance })
-        }
+        check_id(message.message_id, MESSAGE_ID)?;
+
+        let compliance = message
+            .message_contents
+            .get(0)
+            .ok_or(MessageConvertError::MissingData)?
+            .to_owned()
+            .try_into()
+            .map_err(|_| MessageConvertError::InvalidData)?;
+
+        Ok(Self { compliance })
     }
 }
 

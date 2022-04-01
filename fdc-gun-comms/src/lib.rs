@@ -4,6 +4,8 @@
 //! Raw Bytes (`Vec<u8>`) <-> [`FdcGunMessage`] with bytes and a message ID,
 //! and finally specific message instances with respective strong types.
 
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+
 pub mod messages;
 
 /// High-level message definition.
@@ -46,7 +48,7 @@ impl From<FdcGunMessage> for Vec<u8> {
 /// Message ID Values for FDC-Gun messages
 ///
 /// Limited to one byte
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
 pub enum FdcGunMessageId {
     /// A request for a gun to report its status
