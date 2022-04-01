@@ -34,7 +34,8 @@ pub struct FireReport {}
 #[derive(Debug, Default)]
 pub struct FireCommand {}
 
-#[derive(Debug, Default)]
+/// A Check Fire command
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct CheckFire {}
 
 #[derive(Debug, Clone, PartialEq, Default)]
