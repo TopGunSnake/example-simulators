@@ -20,11 +20,13 @@ use proptest_derive::Arbitrary;
 /// Intended to be used as an intermediate between raw bytes and a specific strongly typed message
 #[derive(Debug, PartialEq)]
 #[cfg_attr(test, derive(Clone))]
+#[cfg_attr(test, derive(Arbitrary))]
 pub enum FdcGunMessage {
     /// A request for status
     StatusRequest,
 
     /// A reply for a status request
+    #[cfg_attr(test, proptest(skip))]
     StatusReply {
         /// High-level status
         status: Status,
@@ -33,9 +35,11 @@ pub enum FdcGunMessage {
     },
 
     /// A Report of gun fires
+    #[cfg_attr(test, proptest(skip))]
     FireReport,
 
     /// A Command from the FDC to fire
+    #[cfg_attr(test, proptest(skip))]
     FireCommand {
         /// Number of rounds to fire
         rounds: u32,
@@ -184,56 +188,17 @@ pub enum Compliance {
 mod tests {
     use super::*;
 
-    use proptest::{collection::hash_map, prelude::*};
+    use proptest::prelude::*;
 
     proptest! {
         #[test]
-        fn test_serialize_deserialize(message in fdc_gun_message_strategy()) {
+        fn test_serialize_deserialize(message in any::<FdcGunMessage>()) {
             let mut bytes = Vec::new();
             message.serialize(&mut bytes).unwrap();
 
             let output = FdcGunMessage::deserialize(bytes.as_slice()).unwrap();
 
             assert_eq!(message, output);
-        }
-    }
-
-    fn fdc_gun_message_strategy() -> impl Strategy<Value = FdcGunMessage> {
-        prop_oneof![
-            Just(FdcGunMessage::CheckFire),
-            Just(FdcGunMessage::StatusRequest),
-            // Just(FdcGunMessage::FireReport),
-            compliance_case(),
-            // fire_command_case(),
-            // status_reply_case(),
-        ]
-        .boxed()
-    }
-
-    prop_compose! {
-        fn compliance_case()(
-            compliance in any::<Compliance>(),
-        ) -> FdcGunMessage {
-            FdcGunMessage::ComplianceResponse { compliance }
-        }
-    }
-
-    prop_compose! {
-        fn fire_command_case()(
-            rounds in any::<u32>(),
-            ammunition in any::<Ammunition>(),
-            target_location in any::<TargetLocation>(),
-        ) -> FdcGunMessage {
-            FdcGunMessage::FireCommand {rounds, ammunition, target_location }
-        }
-    }
-
-    prop_compose! {
-        fn status_reply_case()(
-            status in any::<Status>(),
-            rounds in hash_map(any::<Ammunition>(), any::<u32>(), 0..100)
-        ) -> FdcGunMessage {
-            FdcGunMessage::StatusReply {status, rounds}
         }
     }
 }
