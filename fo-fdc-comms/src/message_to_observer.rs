@@ -10,7 +10,6 @@ use crate::Ammunition;
 
 /// The Message to Observer (MTO), sent by a FDC once the FDC has a response to an FO's RFF
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "tag", rename = "message_to_observer")] // Dynamically adds a tag field, with the rename value.
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct MessageToObserver {
     /// The sender's callsign

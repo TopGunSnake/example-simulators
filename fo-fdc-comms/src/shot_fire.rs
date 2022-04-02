@@ -7,7 +7,6 @@ use proptest_derive::Arbitrary;
 /// A Shot message, used by an FDC to indicate that rounds have started going down range.
 #[derive(Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[serde(tag = "tag", rename = "shot")]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct Shot {}
 
@@ -16,7 +15,6 @@ pub struct Shot {}
 /// Used by the FO to ensure attentions for observing, especially if grossly wrong.
 #[derive(Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[serde(tag = "tag", rename = "splash")]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct Splash {}
 
@@ -25,7 +23,6 @@ pub struct Splash {}
 /// Used by the FO to know when it is safe to enter the target area, as well as start BDA.
 #[derive(Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[serde(tag = "tag", rename = "rounds_complete")]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct RoundsComplete {}
 

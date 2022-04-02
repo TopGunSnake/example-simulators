@@ -11,7 +11,6 @@ use crate::Ammunition;
 /// A complete Request for Fire, the first message sent by a FO
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[serde(tag = "tag", rename = "warn_order")]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct WarnOrder {
     /// Callsign for the sender of this warning order

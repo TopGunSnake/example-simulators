@@ -7,7 +7,6 @@ use proptest_derive::Arbitrary;
 /// A Battle Damage Assessment, providing feedback to an FDC of the effect of a fire mission
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[serde(tag = "tag", rename = "battle_damage_assessment")]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct BattleDamageAssessment {}
 //TODO: Fill in the struct.
