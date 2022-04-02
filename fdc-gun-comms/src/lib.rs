@@ -16,6 +16,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 ///
 /// Intended to be used as an intermediate between raw bytes and a specific strongly typed message
 #[derive(Debug, PartialEq)]
+#[cfg_attr(test, derive(Clone))]
 pub enum FdcGunMessage {
     /// A request for status
     StatusRequest,
@@ -99,7 +100,13 @@ impl FdcGunMessage {
     pub fn deserialize(mut buf: impl Read) -> io::Result<Self> {
         match buf.read_u8()? {
             // ComplianceResponse
-            0x00 => todo!(),
+            0x00 => {
+                let compliance = buf
+                    .read_u8()?
+                    .try_into()
+                    .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
+                Ok(FdcGunMessage::ComplianceResponse { compliance })
+            }
             // FireReport
             0x01 => todo!(),
             // StatusRequest
@@ -141,6 +148,7 @@ pub enum Status {
 
 /// A gun's aim
 #[derive(Debug, PartialEq)]
+#[cfg_attr(test, derive(Clone))]
 pub struct TargetLocation {
     /// Range in meters
     range: u32,
@@ -169,14 +177,78 @@ pub enum Compliance {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_serialize_deserialize() {
-        let message = FdcGunMessage::CheckFire;
-        let mut bytes = Vec::new();
-        message.serialize(&mut bytes).unwrap();
+    use proptest::{collection::hash_map, prelude::*};
 
-        let output = FdcGunMessage::deserialize(bytes.as_slice()).unwrap();
+    fn fdc_gun_message_strategy() -> impl Strategy<Value = FdcGunMessage> {
+        prop_oneof![
+            Just(FdcGunMessage::CheckFire),
+            Just(FdcGunMessage::StatusRequest),
+            // Just(FdcGunMessage::FireReport),
+            compliance_case(),
+            // fire_command_case(),
+            // status_reply_case(),
+        ]
+        .boxed()
+    }
 
-        assert_eq!(message, output);
+    fn compliance_strategy() -> impl Strategy<Value = Compliance> {
+        prop_oneof![
+            Just(Compliance::CANTCO),
+            Just(Compliance::WILLCO),
+            Just(Compliance::HAVECO),
+        ]
+    }
+
+    prop_compose! {
+        fn compliance_case()(
+            compliance in compliance_strategy(),
+        ) -> FdcGunMessage {
+            FdcGunMessage::ComplianceResponse { compliance }
+        }
+    }
+
+    fn ammunition_strategy() -> impl Strategy<Value = Ammunition> {
+        prop_oneof![Just(Ammunition::HighExplosive),]
+    }
+
+    prop_compose! {
+        fn fire_command_case()(
+            rounds in any::<u32>(),
+            ammunition in ammunition_strategy(),
+            range in any::<u32>(),
+            direction in any::<u32>(),
+        ) -> FdcGunMessage {
+            let target_location = TargetLocation { range, direction };
+            FdcGunMessage::FireCommand {rounds, ammunition, target_location }
+        }
+    }
+
+    fn status_strategy() -> impl Strategy<Value = Status> {
+        prop_oneof![
+            Just(Status::NonOperational),
+            Just(Status::PartialOperational),
+            Just(Status::Operational),
+        ]
+    }
+
+    prop_compose! {
+        fn status_reply_case()(
+            status in status_strategy(),
+            rounds in hash_map(ammunition_strategy(), any::<u32>(), 0..100)
+        ) -> FdcGunMessage {
+            FdcGunMessage::StatusReply {status, rounds}
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_serialize_deserialize(message in fdc_gun_message_strategy()) {
+            let mut bytes = Vec::new();
+            message.serialize(&mut bytes).unwrap();
+
+            let output = FdcGunMessage::deserialize(bytes.as_slice()).unwrap();
+
+            assert_eq!(message, output);
+        }
     }
 }
