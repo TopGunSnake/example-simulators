@@ -23,7 +23,7 @@ pub mod shot_fire;
 /// This is intended to be used for serialization/deserialization where message context matters.
 ///
 /// The underlying type in each enum can be used as well.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FoFdcMessage {
     /// A Request for Fire originating from a FO
@@ -63,7 +63,7 @@ pub enum FoFdcMessage {
 
 /// Ammunition types
 #[non_exhaustive]
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(test, derive(Arbitrary))]
 pub enum Ammunition {

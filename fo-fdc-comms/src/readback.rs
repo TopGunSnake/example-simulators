@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use proptest_derive::Arbitrary;
 
 /// A readback confirmation message
-#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct SolidReadback {}

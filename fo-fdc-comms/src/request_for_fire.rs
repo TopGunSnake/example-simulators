@@ -9,7 +9,7 @@ use proptest_derive::Arbitrary;
 use crate::Ammunition;
 
 /// A complete Request for Fire, the first message sent by a FO
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct WarnOrder {
@@ -34,7 +34,7 @@ pub struct WarnOrder {
 }
 
 /// Potential Mission Types for a Request for Fire
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(test, derive(Arbitrary))]
 pub enum MissionType {
@@ -47,7 +47,7 @@ pub enum MissionType {
 }
 
 /// Target Location Methods
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(test, derive(Arbitrary))]
 pub enum TargetLocation {
@@ -68,7 +68,7 @@ pub enum TargetLocation {
 }
 
 /// A description of the target, for human interpretation. Not all fields are provided, and may be empty.
-#[derive(Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct TargetDescription {
@@ -83,7 +83,7 @@ pub struct TargetDescription {
 }
 
 /// The Method of Fire requested by the FO
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(test, derive(Arbitrary))]
 pub enum MethodOfFire {

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use proptest_derive::Arbitrary;
 
 /// A Battle Damage Assessment, providing feedback to an FDC of the effect of a fire mission
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct BattleDamageAssessment {}

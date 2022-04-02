@@ -9,7 +9,7 @@ use proptest_derive::Arbitrary;
 use crate::Ammunition;
 
 /// The Message to Observer (MTO), sent by a FDC once the FDC has a response to an FO's RFF
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct MessageToObserver {
     /// The sender's callsign
@@ -29,7 +29,7 @@ pub struct MessageToObserver {
 /// Wrapper type for Target Numbers
 ///
 /// All Target Numbers, when viewed as a string, match the regex `r"[A-Z]{2}\d{4}$"`, for example: AN2001.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct TargetNumber {
     /// The underlying string

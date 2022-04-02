@@ -7,23 +7,20 @@ use anyhow::Result;
 use fo_fdc_comms::{
     readback::SolidReadback,
     shot_fire::{RoundsComplete, Shot, Splash},
+    FoFdcMessage,
 };
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use tracing::{debug, info, info_span, instrument, trace, warn};
-
-use crate::fo_fdc_commhandler::{FromFdcMessage, ToFdcMessage};
+use tracing::{debug, error, info, info_span, instrument, trace, warn};
 
 /// Representation of the top-level state of a Forward Observer
 ///
 /// A FO is either offline (with no FDC to talk to), or connected to an FDC.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum FoState {
     /// State representing when the FO is not attached to an FDC.
     Offline,
     /// State representing when the FO is attached to an FDC.
     Connected {
-        /// The callsign of the FDC that the FO is connected to.
-        attached_fdc: String,
         /// The current state of the FO while connected.
         state: ConnectedState,
     },
@@ -72,14 +69,22 @@ impl FoState {
     ///
     /// [`Observing`]: ConnectedState::Observing
     pub(crate) fn try_to_observing(self) -> Option<Self> {
-        if let Self::Connected {
-            attached_fdc,
-            state,
-        } = self
-        {
+        if let Self::Connected { state } = self {
             Some(Self::Connected {
-                attached_fdc,
                 state: ConnectedState::Observing,
+            })
+        } else {
+            None
+        }
+    }
+
+    /// Tries to change the internal [`ConnectedState`] to [`Reporting`]
+    ///
+    /// [`Reporting`]: ConnectedState::Reporting
+    pub(crate) fn try_to_reporting(self) -> Option<Self> {
+        if let Self::Connected { state } = self {
+            Some(Self::Connected {
+                state: ConnectedState::Reporting,
             })
         } else {
             None
@@ -91,7 +96,7 @@ impl FoState {
 ///
 /// While an FO is connected, it is either in standby (No request), requesting fires,
 /// observing fires, or reporting a battle assessment
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum ConnectedState {
     /// State representing when the FO is standing by, before requesting fires.
     Standby,
@@ -124,8 +129,8 @@ impl ConnectedState {
 /// * `to_fdc` - The send side of a channel where messages to send to the FDC are sent by the state machine loop.
 #[instrument]
 pub(crate) async fn state_machine_loop(
-    mut message_queue: UnboundedReceiver<FromFdcMessage>,
-    to_fdc: UnboundedSender<ToFdcMessage>,
+    mut message_queue: UnboundedReceiver<FoFdcMessage>,
+    to_fdc: UnboundedSender<FoFdcMessage>,
 ) -> Result<()> {
     let mut state = FoState::Offline;
     let message_process_span = info_span!("message_process");
@@ -136,24 +141,39 @@ pub(crate) async fn state_machine_loop(
         trace!("Received message: {:?}", message);
         let _enter = message_process_span.enter();
 
-        match message {
+        match (message, state) {
             // FDC Messages sent when the FO is requesting
 
             // Request for Fire Confirmation
-            FromFdcMessage::RequestForFireConfirm(rff_readback) if state.is_requesting() => {
+            (
+                FoFdcMessage::RequestForFireConfirm(rff_readback),
+                FoState::Connected {
+                    state: ConnectedState::Requesting,
+                },
+            ) => {
                 info!("Received a readback for Request for Fire. Evaluating...");
                 debug!("RFF Readback: {:?}", rff_readback);
                 //TODO: Proccess any errors
                 info!("Readback confirmed, sending SolidReadback...");
-                to_fdc.send(ToFdcMessage::SolidReadback(SolidReadback::default()))?
+                to_fdc.send(FoFdcMessage::SolidReadback(SolidReadback::default()))?
             }
             // MTO Received while Requesting a Fire Mission
-            FromFdcMessage::MessageToObserver(mto) if state.is_requesting() => {
+            (
+                FoFdcMessage::MessageToObserver(mto),
+                FoState::Connected {
+                    state: ConnectedState::Requesting,
+                },
+            ) => {
                 info!("Received the MTO, reading back to FDC");
-                to_fdc.send(ToFdcMessage::MessageToObserverConfirm(mto))?;
+                to_fdc.send(FoFdcMessage::MessageToObserverConfirm(mto))?;
             }
             // Solid Readback received while requesting a Fire Mission
-            FromFdcMessage::SolidReadback(_) if state.is_requesting() => {
+            (
+                FoFdcMessage::SolidReadback(_),
+                FoState::Connected {
+                    state: ConnectedState::Requesting,
+                },
+            ) => {
                 info!("Received a solid readback message. Transitioning to observing.");
                 state = state
                     .try_to_observing()
@@ -163,57 +183,74 @@ pub(crate) async fn state_machine_loop(
             // FDC Messages sent when the FO is observing
 
             // Shot was received while Observing a Fire Mission
-            FromFdcMessage::Shot(_msg) if state.is_observing() => {
+            (
+                FoFdcMessage::Shot(_),
+                FoState::Connected {
+                    state: ConnectedState::Observing,
+                },
+            ) => {
                 info!("Received a Shot message, echoing...");
-                to_fdc.send(ToFdcMessage::ShotConfirm(Shot::default()))?
-            }
-            // Splash was received while Observing a Fire Mission
-            FromFdcMessage::Splash(_msg) if state.is_observing() => {
-                info!("Received a Splash message, echoing...");
-                to_fdc.send(ToFdcMessage::SplashConfirm(Splash::default()))?
-            }
-            // RoundsComplete was received while Observing a Fire Mission
-            FromFdcMessage::RoundsComplete(_msg) if state.is_observing() => {
-                info!("Received a RoundsComplete message, echoing...");
-                to_fdc.send(ToFdcMessage::RoundsCompleteConfirm(
-                    RoundsComplete::default(),
-                ))?
-                //TODO: Transition to Reporting, and send a BDA
+                to_fdc.send(FoFdcMessage::ShotConfirm(Shot::default()))?
             }
 
+            // Splash was received while Observing a Fire Mission
+            (
+                FoFdcMessage::Splash(_),
+                FoState::Connected {
+                    state: ConnectedState::Observing,
+                },
+            ) => {
+                info!("Received a Splash message, echoing...");
+                to_fdc.send(FoFdcMessage::SplashConfirm(Splash::default()))?
+            }
+
+            // RoundsComplete was received while Observing a Fire Mission
+            (
+                FoFdcMessage::RoundsComplete(_),
+                FoState::Connected {
+                    state: ConnectedState::Observing,
+                },
+            ) => {
+                info!("Received a RoundsComplete message, echoing...");
+                to_fdc.send(FoFdcMessage::RoundsCompleteConfirm(
+                    RoundsComplete::default(),
+                ))?
+            }
+
+            // Solid readback was received while observing
+            (
+                FoFdcMessage::SolidReadback(_),
+                FoState::Connected {
+                    state: ConnectedState::Observing,
+                },
+            ) => {
+                info!("Received a solid readback message. Transitioning to reporting.");
+                state = state
+                    .try_to_reporting()
+                    .expect("state was invalid for conversion");
+            }
+
+            // FDC Messages sent when the FO is reporting
+
             // UNEXPECTED MESSAGES
-            FromFdcMessage::RequestForFireConfirm(rff_readback) => {
-                warn!(
-                    "Received a readback for RFF when in a state that does not expect an RFF: {:?}",
-                    rff_readback
-                );
+            (FoFdcMessage::RequestForFireConfirm(_), _)
+            | (FoFdcMessage::MessageToObserver(_), _)
+            | (FoFdcMessage::SolidReadback(_), _)
+            | (FoFdcMessage::Shot(_), _)
+            | (FoFdcMessage::Splash(_), _)
+            | (FoFdcMessage::RoundsComplete(_), _)
+            | (FoFdcMessage::BattleDamageAssessmentConfirm(_), _) => {
+                warn!("Received a message when in a state that doesn't expect it",);
             }
-            FromFdcMessage::MessageToObserver(mto) => {
-                warn!(
-                    "Received an MTO when in a state that does not expect an MTO: {:?}",
-                    mto
-                );
-            }
-            FromFdcMessage::SolidReadback(msg) => {
-                warn!("Received a solid readback when in a state that does not expect a solid readback: {:?}", msg);
-            }
-            FromFdcMessage::Shot(msg) => {
-                warn!(
-                    "Received a Shot when in a state that does not expect a Shot: {:?}",
-                    msg
-                );
-            }
-            FromFdcMessage::Splash(msg) => {
-                warn!(
-                    "Received a Splash when in a state that does not expect a Splash: {:?}",
-                    msg
-                );
-            }
-            FromFdcMessage::RoundsComplete(msg) => {
-                warn!(
-                    "Received a RoundsComplete when in a state that does not expect a RoundsComplete: {:?}",
-                    msg
-                );
+
+            // Invalid messages, these messages are not expected, since we only send these.
+            (FoFdcMessage::RequestForFire(_), _)
+            | (FoFdcMessage::BattleDamageAssessment(_), _)
+            | (FoFdcMessage::MessageToObserverConfirm(_), _)
+            | (FoFdcMessage::RoundsCompleteConfirm(_), _)
+            | (FoFdcMessage::ShotConfirm(_), _)
+            | (FoFdcMessage::SplashConfirm(_), _) => {
+                error!("Received a message intended for transmission from FO Sim only",)
             }
         }
     }
