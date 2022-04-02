@@ -42,8 +42,21 @@ pub enum FdcGunMessage {
     },
 
     /// A Report of gun fires
-    #[cfg_attr(test, proptest(skip))]
-    FireReport,
+    FireReport {
+        /// The shot number for this report
+        shot: u8,
+        /// The total number of shots that the gun issuing the report
+        /// will fire
+        total_shots: u8,
+        /// The Ammunition in use
+        ammunition: Ammunition,
+        /// The location of this shot
+        target_location: TargetLocation,
+        /// The time in seconds from the issue of this
+        /// [`FdcGunMessage::FireReport`] until the round is expected
+        /// to land
+        time_to_target: u32,
+    },
 
     /// A Command from the FDC to fire
     FireCommand {
@@ -70,7 +83,7 @@ impl From<&FdcGunMessage> for u8 {
     fn from(msg: &FdcGunMessage) -> Self {
         match msg {
             FdcGunMessage::ComplianceResponse { .. } => 0x00,
-            FdcGunMessage::FireReport => 0x01,
+            FdcGunMessage::FireReport { .. } => 0x01,
             FdcGunMessage::StatusRequest => 0x02,
             FdcGunMessage::StatusReply { .. } => 0x03,
             FdcGunMessage::FireCommand { .. } => 0x05,
@@ -94,7 +107,20 @@ impl FdcGunMessage {
                 FdcGunMessage::StatusReply { status, rounds } => {
                     serialize_status_reply(&mut message_contents, status, rounds)?;
                 }
-                FdcGunMessage::FireReport => todo!(),
+                FdcGunMessage::FireReport {
+                    shot,
+                    total_shots,
+                    ammunition,
+                    target_location,
+                    time_to_target,
+                } => serialize_fire_report(
+                    &mut message_contents,
+                    shot,
+                    total_shots,
+                    ammunition,
+                    target_location,
+                    time_to_target,
+                )?,
                 FdcGunMessage::FireCommand {
                     rounds,
                     ammunition,
@@ -143,7 +169,7 @@ impl FdcGunMessage {
             // ComplianceResponse
             0x00 => deserialize_compliance_response(buf),
             // FireReport
-            0x01 => todo!(),
+            0x01 => deserialize_fire_report(buf),
             // StatusRequest
             0x02 => Ok(FdcGunMessage::StatusRequest),
             // StatusReply
@@ -198,6 +224,23 @@ fn serialize_status_reply(
     Ok(())
 }
 
+/// Serializes the fields of a [`FdcGunMessage::FireReport`]
+fn serialize_fire_report(
+    message_contents: &mut Vec<u8>,
+    shot: &u8,
+    total_shots: &u8,
+    ammunition: &Ammunition,
+    target_location: &TargetLocation,
+    time_to_target: &u32,
+) -> Result<(), io::Error> {
+    message_contents.write_u8(*shot)?;
+    message_contents.write_u8(*total_shots)?;
+    message_contents.write_u8((*ammunition).into())?;
+    target_location.serialize(message_contents)?;
+    message_contents.write_u32::<NetworkEndian>(*time_to_target)?;
+    Ok(())
+}
+
 /// Deserializes to a [`FdcGunMessage::FireCommand`]
 fn deserialize_fire_command(mut buf: impl Read) -> Result<FdcGunMessage, io::Error> {
     let rounds = buf.read_u32::<NetworkEndian>()?;
@@ -205,7 +248,7 @@ fn deserialize_fire_command(mut buf: impl Read) -> Result<FdcGunMessage, io::Err
         .read_u8()?
         .try_into()
         .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
-    let target_location = TargetLocation::deserialize(buf)?;
+    let target_location = TargetLocation::deserialize(&mut buf)?;
     Ok(FdcGunMessage::FireCommand {
         rounds,
         ammunition,
@@ -245,6 +288,26 @@ fn deserialize_compliance_response(mut buf: impl Read) -> Result<FdcGunMessage, 
         .try_into()
         .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
     Ok(FdcGunMessage::ComplianceResponse { compliance })
+}
+
+/// Deserializes to a [`FdcGunMessage::FireReport`]
+fn deserialize_fire_report(mut buf: impl Read) -> Result<FdcGunMessage, io::Error> {
+    let shot = buf.read_u8()?;
+    let total_shots = buf.read_u8()?;
+    let ammunition = buf
+        .read_u8()?
+        .try_into()
+        .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
+    let target_location = TargetLocation::deserialize(&mut buf)?;
+    let time_to_target = buf.read_u32::<NetworkEndian>()?;
+
+    Ok(FdcGunMessage::FireReport {
+        shot,
+        total_shots,
+        ammunition,
+        target_location,
+        time_to_target,
+    })
 }
 
 /// Ammunition types
@@ -289,7 +352,7 @@ impl TargetLocation {
     }
 
     /// Deserializes a [`TargetLocation`] from the supplied buffer
-    fn deserialize(mut buf: impl Read) -> io::Result<Self> {
+    fn deserialize(buf: &mut impl Read) -> io::Result<Self> {
         let range = buf.read_u32::<NetworkEndian>()?;
         let direction = buf.read_u32::<NetworkEndian>()?;
 
