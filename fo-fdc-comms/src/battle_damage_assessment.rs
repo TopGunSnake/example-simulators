@@ -6,7 +6,7 @@ use proptest_derive::Arbitrary;
 
 /// A Battle Damage Assessment, providing feedback to an FDC of the effect of a fire mission
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 #[serde(tag = "tag", rename = "battle_damage_assessment")]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct BattleDamageAssessment {}
@@ -34,7 +34,7 @@ mod tests {
 
             let verified: BattleDamageAssessment = serde_json::from_str(&json).unwrap();
 
-            assert_eq!(message, verified);
+            assert_eq!(message, verified, "{}", json);
         }
     }
 }

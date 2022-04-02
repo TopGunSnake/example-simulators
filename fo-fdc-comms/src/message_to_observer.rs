@@ -102,7 +102,7 @@ mod tests {
 
             let verified: MessageToObserver = serde_json::from_str(&json).unwrap();
 
-            assert_eq!(message, verified);
+            assert_eq!(message, verified, "{}", json);
         }
     }
 }

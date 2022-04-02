@@ -10,7 +10,7 @@ use crate::Ammunition;
 
 /// A complete Request for Fire, the first message sent by a FO
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 #[serde(tag = "tag", rename = "warn_order")]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct WarnOrder {
@@ -102,12 +102,12 @@ mod tests {
 
     proptest! {
         #[test]
-        fn test_serde(call_for_fire in any::<WarnOrder>()) {
-            let json = serde_json::to_string_pretty(&call_for_fire).unwrap();
+        fn test_serde(message in any::<WarnOrder>()) {
+            let json = serde_json::to_string_pretty(&message).unwrap();
 
             let verified: WarnOrder = serde_json::from_str(&json).unwrap();
 
-            assert_eq!(call_for_fire, verified);
+            assert_eq!(message, verified, "{}", json);
         }
     }
 }
