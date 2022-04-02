@@ -10,6 +10,7 @@ use crate::Ammunition;
 
 /// The Message to Observer (MTO), sent by a FDC once the FDC has a response to an FO's RFF
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "tag", rename = "message_to_observer")] // Dynamically adds a tag field, with the rename value.
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct MessageToObserver {
     /// The sender's callsign
@@ -59,6 +60,21 @@ impl TargetNumber {
 mod tests {
     use super::*;
     use proptest::prelude::*;
+
+    #[test]
+    #[ignore = "Available for debugging only"]
+    fn view_json() {
+        let message = MessageToObserver {
+            src: "its_me".to_string(),
+            receiver: "hey_you".to_string(),
+            target_number: TargetNumber::new("AN2001").unwrap(),
+            ammunition: Ammunition::HighExplosive,
+            rounds: 32,
+        };
+
+        let json = serde_json::to_string_pretty(&message).unwrap();
+        println!("{message:?} : {json}");
+    }
 
     #[test]
     fn test_target_numbers() {
