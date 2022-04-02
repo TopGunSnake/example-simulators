@@ -2,7 +2,7 @@
     missing_docs,
     clippy::doc_markdown,
     clippy::missing_errors_doc,
-    // clippy::missing_panics_doc, // Turn this back on once we get the todo!() handled
+    clippy::missing_panics_doc,
     clippy::undocumented_unsafe_blocks
 )]
 //! Provides the message definitions and utilities for the FDC - Gun comm interface
