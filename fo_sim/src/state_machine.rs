@@ -165,17 +165,19 @@ pub(crate) async fn state_machine_loop(
             // Shot was received while Observing a Fire Mission
             FromFdcMessage::Shot(_msg) if state.is_observing() => {
                 info!("Received a Shot message, echoing...");
-                to_fdc.send(ToFdcMessage::ShotConfirm(Shot))?
+                to_fdc.send(ToFdcMessage::ShotConfirm(Shot::default()))?
             }
             // Splash was received while Observing a Fire Mission
             FromFdcMessage::Splash(_msg) if state.is_observing() => {
                 info!("Received a Splash message, echoing...");
-                to_fdc.send(ToFdcMessage::SplashConfirm(Splash))?
+                to_fdc.send(ToFdcMessage::SplashConfirm(Splash::default()))?
             }
             // RoundsComplete was received while Observing a Fire Mission
             FromFdcMessage::RoundsComplete(_msg) if state.is_observing() => {
                 info!("Received a RoundsComplete message, echoing...");
-                to_fdc.send(ToFdcMessage::RoundsCompleteConfirm(RoundsComplete))?
+                to_fdc.send(ToFdcMessage::RoundsCompleteConfirm(
+                    RoundsComplete::default(),
+                ))?
                 //TODO: Transition to Reporting, and send a BDA
             }
 
