@@ -99,7 +99,6 @@ dependencies = [
  "num_enum",
  "proptest",
  "proptest-derive",
- "tracing",
 ]
 
 [[package]]
