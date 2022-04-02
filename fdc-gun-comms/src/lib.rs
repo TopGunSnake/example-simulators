@@ -12,6 +12,9 @@ use std::{
 use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+#[cfg(test)]
+use proptest_derive::Arbitrary;
+
 /// High-level message definition.
 ///
 /// Intended to be used as an intermediate between raw bytes and a specific strongly typed message
@@ -129,6 +132,7 @@ impl FdcGunMessage {
 
 /// Ammunition types
 #[derive(Debug, Clone, Copy, IntoPrimitive, TryFromPrimitive, PartialEq, Eq, Hash)]
+#[cfg_attr(test, derive(Arbitrary))]
 #[repr(u8)]
 pub enum Ammunition {
     HighExplosive,
@@ -136,6 +140,7 @@ pub enum Ammunition {
 
 /// Gun status
 #[derive(Debug, Clone, Copy, IntoPrimitive, TryFromPrimitive, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
 #[repr(u8)]
 pub enum Status {
     /// Non-operational if no ammunition or other mission-critical fault
@@ -149,6 +154,7 @@ pub enum Status {
 /// A gun's aim
 #[derive(Debug, PartialEq)]
 #[cfg_attr(test, derive(Clone))]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct TargetLocation {
     /// Range in meters
     range: u32,
@@ -166,6 +172,7 @@ impl TargetLocation {
 
 /// Compliance types
 #[derive(Debug, Clone, Copy, IntoPrimitive, TryFromPrimitive, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
 #[repr(u8)]
 pub enum Compliance {
     CANTCO = 0x01,
@@ -179,6 +186,18 @@ mod tests {
 
     use proptest::{collection::hash_map, prelude::*};
 
+    proptest! {
+        #[test]
+        fn test_serialize_deserialize(message in fdc_gun_message_strategy()) {
+            let mut bytes = Vec::new();
+            message.serialize(&mut bytes).unwrap();
+
+            let output = FdcGunMessage::deserialize(bytes.as_slice()).unwrap();
+
+            assert_eq!(message, output);
+        }
+    }
+
     fn fdc_gun_message_strategy() -> impl Strategy<Value = FdcGunMessage> {
         prop_oneof![
             Just(FdcGunMessage::CheckFire),
@@ -191,64 +210,30 @@ mod tests {
         .boxed()
     }
 
-    fn compliance_strategy() -> impl Strategy<Value = Compliance> {
-        prop_oneof![
-            Just(Compliance::CANTCO),
-            Just(Compliance::WILLCO),
-            Just(Compliance::HAVECO),
-        ]
-    }
-
     prop_compose! {
         fn compliance_case()(
-            compliance in compliance_strategy(),
+            compliance in any::<Compliance>(),
         ) -> FdcGunMessage {
             FdcGunMessage::ComplianceResponse { compliance }
         }
     }
 
-    fn ammunition_strategy() -> impl Strategy<Value = Ammunition> {
-        prop_oneof![Just(Ammunition::HighExplosive),]
-    }
-
     prop_compose! {
         fn fire_command_case()(
             rounds in any::<u32>(),
-            ammunition in ammunition_strategy(),
-            range in any::<u32>(),
-            direction in any::<u32>(),
+            ammunition in any::<Ammunition>(),
+            target_location in any::<TargetLocation>(),
         ) -> FdcGunMessage {
-            let target_location = TargetLocation { range, direction };
             FdcGunMessage::FireCommand {rounds, ammunition, target_location }
         }
     }
 
-    fn status_strategy() -> impl Strategy<Value = Status> {
-        prop_oneof![
-            Just(Status::NonOperational),
-            Just(Status::PartialOperational),
-            Just(Status::Operational),
-        ]
-    }
-
     prop_compose! {
         fn status_reply_case()(
-            status in status_strategy(),
-            rounds in hash_map(ammunition_strategy(), any::<u32>(), 0..100)
+            status in any::<Status>(),
+            rounds in hash_map(any::<Ammunition>(), any::<u32>(), 0..100)
         ) -> FdcGunMessage {
             FdcGunMessage::StatusReply {status, rounds}
-        }
-    }
-
-    proptest! {
-        #[test]
-        fn test_serialize_deserialize(message in fdc_gun_message_strategy()) {
-            let mut bytes = Vec::new();
-            message.serialize(&mut bytes).unwrap();
-
-            let output = FdcGunMessage::deserialize(bytes.as_slice()).unwrap();
-
-            assert_eq!(message, output);
         }
     }
 }
