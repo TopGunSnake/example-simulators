@@ -103,8 +103,22 @@ The message field can contain the following possible messages:
 | FireReport | 0x01 | | A report that rounds have been fired, as well as the time until on-target |
 | StatusRequest | 0x02 | 0 bytes | Requests a status from the Gun |
 | StatusReply | 0x03 | variable | The reply to a StatusRequest |
-| FireCommand | 0x05 | | Request the Gun to fire at the specified target, with specified ammunition |
-| CheckFire | 0x06 | | Requests the Gun to checkfire a current fire mission |
+| Reserved | 0x04 | N\A | N\A |
+| FireCommand | 0x05 | 13 bytes | Request the Gun to fire at the specified target, with specified ammunition |
+| CheckFire | 0x06 | 0 bytes | Requests the Gun to checkfire a current fire mission |
+| Reserved | 0x07 - 0xFF | N\A | N\A |
+
+#### Compliance Response
+
+A Compliance Response is sent from a Gun in response to a Fire Command or Check Fire message from the FDC. The message is a single byte.
+
+| Compliance | Value | Description |
+| --- | --- | --- |
+| CANTCO | 0x01 | The Gun cannot comply with the received message |
+| WILLCO | 0x02 | The Gun will comply with the received message |
+| HAVECO | 0x03 | The Gun has already complied to this message |
+
+#### Fire Report TODO
 
 #### Status Request
 
@@ -145,7 +159,28 @@ A map of ammunition to count, as 5-byte blocks.
 
 #### Fire Command
 
-A Fire Command originates from an FDC, and tells a specific gun the target for fires, the ammunition for use, and
+A Fire Command originates from an FDC, and tells a specific gun the target for fires, the ammunition for use, and how many rounds to fire.
+
+| Field | Size | Representation |
+| --- | --- | --- |
+| Rounds | 4 bytes | unsigned 32-bit integer (big-endian) |
+| Ammunition | 1 byte | enumeration |
+| Target Location | 8 bytes | submessage |
+
+##### Target Location
+
+A target location for a gun is a range in meters and a direction in mils
+
+| Field | Size | Representation |
+| --- | --- | --- |
+| Range | 4 bytes | unsigned 32-bit integer in meters |
+| Direction | 4 bytes | unsigned 32-bit integer in mils |
+
+#### Check Fire
+
+A Check Fire originates from an FDC, and tells a specific gun to stop all fires. A Compliance Reponse is expected from the Gun after receipt of a Check Fire.
+
+A Check Fire is a 0-byte message. Only the header is provided.
 
 ### FO - FDC Interface
 
