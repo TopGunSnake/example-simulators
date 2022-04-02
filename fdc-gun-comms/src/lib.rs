@@ -6,16 +6,16 @@
 
 use std::{
     collections::HashMap,
-    io::{self, Write},
+    io::{self, Read, Write},
 };
 
-use byteorder::{NetworkEndian, WriteBytesExt};
+use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 /// High-level message definition.
 ///
 /// Intended to be used as an intermediate between raw bytes and a specific strongly typed message
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum FdcGunMessage {
     /// A request for status
     StatusRequest,
@@ -54,18 +54,19 @@ pub enum FdcGunMessage {
 impl From<&FdcGunMessage> for u8 {
     fn from(msg: &FdcGunMessage) -> Self {
         match msg {
+            FdcGunMessage::ComplianceResponse { .. } => 0x00,
+            FdcGunMessage::FireReport => 0x01,
+
             FdcGunMessage::StatusRequest => 0x02,
             FdcGunMessage::StatusReply { .. } => 0x03,
-            FdcGunMessage::FireReport => 0x01,
             FdcGunMessage::FireCommand { .. } => 0x05,
             FdcGunMessage::CheckFire => 0x06,
-            FdcGunMessage::ComplianceResponse { .. } => 0x00,
         }
     }
 }
 
 impl FdcGunMessage {
-    pub fn serialize(&self, buf: &mut (impl Write)) -> io::Result<()> {
+    pub fn serialize(&self, buf: &mut impl Write) -> io::Result<()> {
         buf.write_u8(self.into())?;
 
         match self {
@@ -95,16 +96,31 @@ impl FdcGunMessage {
         }
         Ok(())
     }
+
+    pub fn deserialize(mut buf: impl Read) -> io::Result<Self> {
+        match buf.read_u8()? {
+            0x00 => todo!(),
+            0x01 => todo!(),
+            0x02 => todo!(),
+            0x03 => Ok(FdcGunMessage::StatusRequest),
+            0x05 => todo!(),
+            0x06 => Ok(FdcGunMessage::CheckFire),
+            _ => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Invalid Message Type",
+            )),
+        }
+    }
 }
 /// Ammunition types
-#[derive(Debug, Clone, Copy, IntoPrimitive, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, IntoPrimitive, TryFromPrimitive, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Ammunition {
     HighExplosive,
 }
 
 /// Gun status
-#[derive(Debug, Clone, Copy, IntoPrimitive, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, IntoPrimitive, TryFromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum Status {
     /// Non-operational if no ammunition or other mission-critical fault
@@ -116,7 +132,7 @@ pub enum Status {
 }
 
 /// A gun's aim
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TargetLocation {
     /// Range in meters
     range: u32,
@@ -133,10 +149,26 @@ impl TargetLocation {
 }
 
 /// Compliance types
-#[derive(Debug, Clone, Copy, IntoPrimitive, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, IntoPrimitive, TryFromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum Compliance {
     CANTCO = 0x01,
     WILLCO = 0x02,
     HAVECO = 0x03,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_serialize_deserialize() {
+        let message = FdcGunMessage::CheckFire;
+        let mut bytes = Vec::new();
+        message.serialize(&mut bytes).unwrap();
+
+        let output = FdcGunMessage::deserialize(bytes.as_slice()).unwrap();
+
+        assert_eq!(message, output);
+    }
 }
