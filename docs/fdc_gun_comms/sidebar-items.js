@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Ammunition","Ammunition types"],["Compliance","Compliance types"],["FdcGunMessage","High-level message definition."],["Status","Gun status"]],"struct":[["TargetLocation","A gun’s aim"]]});
