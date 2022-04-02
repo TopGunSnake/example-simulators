@@ -118,7 +118,17 @@ A Compliance Response is sent from a Gun in response to a Fire Command or Check 
 | WILLCO | 0x02 | The Gun will comply with the received message |
 | HAVECO | 0x03 | The Gun has already complied to this message |
 
-#### Fire Report TODO
+#### Fire Report
+
+A report of fires from a gun. Each fire will send a Fire Report, most importantly with a time-to-target field.
+
+| Field | Size | Representation |
+| --- | --- | --- |
+| Shot Number | 1 byte | unsigned 8-bit integer |
+| Total Shots | 1 byte | unsigned 8-bit integer |
+| Ammunition | 1 bytes | enumeration |
+| Target Location | 8 bytes | submessage |
+| Time-To-Target | 4 bytes | unsigned 32-bit integer in milliseconds |
 
 #### Status Request
 
