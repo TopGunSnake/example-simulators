@@ -5,10 +5,19 @@ use serde::{Deserialize, Serialize};
 use proptest_derive::Arbitrary;
 
 /// A readback confirmation message
-#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(test, derive(Arbitrary))]
-pub struct SolidReadback {}
+pub enum SolidReadback {
+    Shot,
+    Splash,
+    RoundsComplete,
+
+    RequestForFire,
+    BattleDamageAssessment,
+
+    MessageToObserver,
+}
 
 #[cfg(test)]
 mod tests {
@@ -19,7 +28,7 @@ mod tests {
     #[test]
     #[ignore = "Available for debugging only"]
     fn view_json() {
-        let message = SolidReadback {};
+        let message = SolidReadback::Splash;
 
         let json = serde_json::to_string_pretty(&message).unwrap();
         println!("{message:?} : {json}");

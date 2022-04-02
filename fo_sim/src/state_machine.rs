@@ -5,6 +5,7 @@
 //! which provides an `async` function for use in a runtime.
 use anyhow::Result;
 use fo_fdc_comms::{
+    battle_damage_assessment::BattleDamageAssessment,
     readback::SolidReadback,
     shot_fire::{RoundsComplete, Shot, Splash},
     FoFdcMessage,
@@ -90,6 +91,19 @@ impl FoState {
             None
         }
     }
+
+    /// Tries to change the internal [`ConnectedState`] to [`Standby`]
+    ///
+    /// [`Standby`]: ConnectedState::Standby
+    pub(crate) fn try_to_standby(self) -> Option<Self> {
+        if let Self::Connected { state } = self {
+            Some(Self::Connected {
+                state: ConnectedState::Standby,
+            })
+        } else {
+            None
+        }
+    }
 }
 
 /// Representation of the Connectedstate of an FO.
@@ -155,7 +169,7 @@ pub(crate) async fn state_machine_loop(
                 debug!("RFF Readback: {:?}", rff_readback);
                 //TODO: Proccess any errors
                 info!("Readback confirmed, sending SolidReadback...");
-                to_fdc.send(FoFdcMessage::SolidReadback(SolidReadback::default()))?
+                to_fdc.send(FoFdcMessage::SolidReadback(SolidReadback::RequestForFire))?
             }
             // MTO Received while Requesting a Fire Mission
             (
@@ -169,7 +183,7 @@ pub(crate) async fn state_machine_loop(
             }
             // Solid Readback received while requesting a Fire Mission
             (
-                FoFdcMessage::SolidReadback(_),
+                FoFdcMessage::SolidReadback(SolidReadback::MessageToObserver),
                 FoState::Connected {
                     state: ConnectedState::Requesting,
                 },
@@ -219,18 +233,53 @@ pub(crate) async fn state_machine_loop(
 
             // Solid readback was received while observing
             (
-                FoFdcMessage::SolidReadback(_),
+                FoFdcMessage::SolidReadback(SolidReadback::Shot | SolidReadback::Splash),
                 FoState::Connected {
                     state: ConnectedState::Observing,
                 },
             ) => {
-                info!("Received a solid readback message. Transitioning to reporting.");
+                info!("Received a solid readback message. Waiting.");
+            }
+
+            // Solid readback was received for Rounds Complete while observing
+            (
+                FoFdcMessage::SolidReadback(SolidReadback::RoundsComplete),
+                FoState::Connected {
+                    state: ConnectedState::Observing,
+                },
+            ) => {
+                info!("Received a solid readback for rounds complete. Reporting a BDA");
+
                 state = state
                     .try_to_reporting()
                     .expect("state was invalid for conversion");
+
+                to_fdc.send(FoFdcMessage::BattleDamageAssessment(
+                    BattleDamageAssessment {},
+                ))?
             }
 
             // FDC Messages sent when the FO is reporting
+
+            // Received BDA Readback
+            (
+                FoFdcMessage::BattleDamageAssessmentConfirm(bda_readback),
+                FoState::Connected {
+                    state: ConnectedState::Reporting,
+                },
+            ) => {
+                info!("Received a readback for Battle Damage Assessment. Evaluating...");
+                debug!("BDA Readback: {:?}", bda_readback);
+                //TODO: Proccess any errors
+                info!("Readback confirmed, sending SolidReadback...");
+                to_fdc.send(FoFdcMessage::SolidReadback(
+                    SolidReadback::BattleDamageAssessment,
+                ))?;
+
+                state = state
+                    .try_to_standby()
+                    .expect("state was invalid for conversion")
+            }
 
             // UNEXPECTED MESSAGES
             (FoFdcMessage::RequestForFireConfirm(_), _)
