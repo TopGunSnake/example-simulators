@@ -4,93 +4,139 @@
 //! Raw Bytes (`Vec<u8>`) <-> [`FdcGunMessage`] with bytes and a message ID,
 //! and finally specific message instances with respective strong types.
 
-use num_enum::{IntoPrimitive, TryFromPrimitive};
+use std::{
+    collections::HashMap,
+    io::{self, Write},
+};
 
-pub mod messages;
+use byteorder::{NetworkEndian, WriteBytesExt};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 /// High-level message definition.
 ///
 /// Intended to be used as an intermediate between raw bytes and a specific strongly typed message
 #[derive(Debug)]
-pub struct FdcGunMessage {
-    /// The message ID for this message
-    message_id: FdcGunMessageId,
-    /// The bytes that are carried with this message.
-    /// NOTE: This field is limited to a length that will fit into a [`u32`]
-    message_contents: Vec<u8>,
+pub enum FdcGunMessage {
+    /// A request for status
+    StatusRequest,
+
+    /// A reply for a status request
+    StatusReply {
+        /// High-level status
+        status: Status,
+        /// Rounds available
+        rounds: HashMap<Ammunition, u32>,
+    },
+
+    /// A Report of gun fires
+    FireReport,
+
+    /// A Command from the FDC to fire
+    FireCommand {
+        /// Number of rounds to fire
+        rounds: u32,
+        /// Type of ammunition for fires
+        ammunition: Ammunition,
+        /// Location of target
+        target_location: TargetLocation,
+    },
+
+    /// A Check Fire command to a gun, to stop any active fires
+    CheckFire,
+
+    /// A Compliance response to a CheckFire, FireCommand
+    ComplianceResponse {
+        /// The specific compliance type
+        compliance: Compliance,
+    },
+}
+
+impl From<&FdcGunMessage> for u8 {
+    fn from(msg: &FdcGunMessage) -> Self {
+        match msg {
+            FdcGunMessage::StatusRequest => 0x02,
+            FdcGunMessage::StatusReply { .. } => 0x03,
+            FdcGunMessage::FireReport => 0x01,
+            FdcGunMessage::FireCommand { .. } => 0x05,
+            FdcGunMessage::CheckFire => 0x06,
+            FdcGunMessage::ComplianceResponse { .. } => 0x00,
+        }
+    }
 }
 
 impl FdcGunMessage {
-    /// Get the [`FdcGunMessageId`] for this message
-    pub fn get_message_id(&self) -> FdcGunMessageId {
-        self.message_id
+    pub fn serialize(&self, buf: &mut (impl Write)) -> io::Result<()> {
+        buf.write_u8(self.into())?;
+
+        match self {
+            FdcGunMessage::StatusRequest => (),
+            FdcGunMessage::StatusReply { status, rounds } => {
+                buf.write_u8((*status).into())?;
+
+                for (ammo_type, ammo_count) in rounds {
+                    buf.write_u8((*ammo_type).into())?;
+                    buf.write_u32::<NetworkEndian>(*ammo_count)?;
+                }
+            }
+            FdcGunMessage::FireReport => todo!(),
+            FdcGunMessage::FireCommand {
+                rounds,
+                ammunition,
+                target_location,
+            } => {
+                buf.write_u32::<NetworkEndian>(*rounds)?;
+                buf.write_u8((*ammunition).into())?;
+                target_location.serialize(buf)?;
+            }
+            FdcGunMessage::CheckFire => (),
+            FdcGunMessage::ComplianceResponse { compliance } => {
+                buf.write_u8((*compliance).into())?;
+            }
+        }
+        Ok(())
     }
 }
-
-impl From<FdcGunMessage> for Vec<u8> {
-    /// Converts a message into raw bytes
-    ///
-    /// # Panic
-    /// Panics if the length of the message contents is larger than [`u32::MAX`]
-    fn from(message: FdcGunMessage) -> Self {
-        let message_id_byte = message.message_id as u8;
-        let message_len = message.message_contents.len();
-
-        let mut bytes = Vec::<u8>::with_capacity(4 + 1 + message_len);
-        bytes.extend((u32::try_from(message_len).unwrap()).to_be_bytes());
-        bytes.push(message_id_byte);
-        bytes.extend(message.message_contents);
-
-        bytes
-    }
-}
-
-/// Message ID Values for FDC-Gun messages
-///
-/// Limited to one byte
-#[derive(Debug, Clone, Copy, PartialEq, IntoPrimitive, TryFromPrimitive)]
+/// Ammunition types
+#[derive(Debug, Clone, Copy, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
-pub enum FdcGunMessageId {
-    /// A request for a gun to report its status
-    StatusRequest = 0x02,
-    /// A reply to a status request
-    StatusReply = 0x03,
-
-    /// A report indicating a gun has started fires
-    FireReport = 0x01,
-
-    /// A command from an FDC to fire
-    FireCommand = 0x05,
-    /// A Check Fire command from an FDC
-    CheckFire = 0x06,
-
-    /// A general compliance response from a gun
-    ComplianceResponse = 0x00,
+pub enum Ammunition {
+    HighExplosive,
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::{FdcGunMessage, FdcGunMessageId};
+/// Gun status
+#[derive(Debug, Clone, Copy, IntoPrimitive, TryFromPrimitive)]
+#[repr(u8)]
+pub enum Status {
+    /// Non-operational if no ammunition or other mission-critical fault
+    NonOperational,
+    /// Partial operational capability, if less than minimum ammunition counts, or non-mission-critical fault
+    PartialOperational,
+    /// Full operational status
+    Operational,
+}
 
-    #[test]
-    fn test_fdc_message_into_bytes() {
-        let message = FdcGunMessage {
-            message_id: FdcGunMessageId::FireReport,
-            message_contents: vec![10u8; 100],
-        };
+/// A gun's aim
+#[derive(Debug)]
+pub struct TargetLocation {
+    /// Range in meters
+    range: u32,
+    /// Direction in mils
+    direction: u32,
+}
 
-        let bytes: Vec<u8> = message.into();
-
-        assert_eq!(
-            bytes[0..4],
-            100_u32.to_be_bytes(),
-            "Message length are first four bytes"
-        );
-        assert_eq!(
-            bytes[4],
-            FdcGunMessageId::FireReport as u8,
-            "Message ID is fifth byte"
-        );
-        assert_eq!(bytes[5..], vec![10u8; 100], "Remaining bytes are message");
+impl TargetLocation {
+    pub fn serialize(&self, buf: &mut impl Write) -> io::Result<()> {
+        buf.write_u32::<NetworkEndian>(self.range)?;
+        buf.write_u32::<NetworkEndian>(self.direction)?;
+        Ok(())
     }
+}
+
+/// Compliance types
+#[derive(Debug, Clone, Copy, IntoPrimitive, TryFromPrimitive)]
+#[repr(u8)]
+pub enum Compliance {
+    CANTCO = 0x01,
+    WILLCO = 0x02,
+    HAVECO = 0x03,
 }

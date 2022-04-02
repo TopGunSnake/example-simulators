@@ -12,3 +12,5 @@ tracing = { version = "0.1.32" }
 thiserror = "1.0.30"
 
 num_enum = "0.5.7"
+
+byteorder = "1.4.3"
