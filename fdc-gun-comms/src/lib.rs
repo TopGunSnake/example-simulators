@@ -74,37 +74,54 @@ impl From<&FdcGunMessage> for u8 {
 
 impl FdcGunMessage {
     pub fn serialize(&self, buf: &mut impl Write) -> io::Result<()> {
-        buf.write_u8(self.into())?;
+        let message_contents = {
+            let mut message_contents = Vec::new();
+            match self {
+                FdcGunMessage::StatusRequest => (),
+                FdcGunMessage::StatusReply { status, rounds } => {
+                    message_contents.write_u8((*status).into())?;
 
-        match self {
-            FdcGunMessage::StatusRequest => (),
-            FdcGunMessage::StatusReply { status, rounds } => {
-                buf.write_u8((*status).into())?;
-
-                for (ammo_type, ammo_count) in rounds {
-                    buf.write_u8((*ammo_type).into())?;
-                    buf.write_u32::<NetworkEndian>(*ammo_count)?;
+                    for (ammo_type, ammo_count) in rounds {
+                        message_contents.write_u8((*ammo_type).into())?;
+                        message_contents.write_u32::<NetworkEndian>(*ammo_count)?;
+                    }
+                }
+                FdcGunMessage::FireReport => todo!(),
+                FdcGunMessage::FireCommand {
+                    rounds,
+                    ammunition,
+                    target_location,
+                } => {
+                    message_contents.write_u32::<NetworkEndian>(*rounds)?;
+                    message_contents.write_u8((*ammunition).into())?;
+                    target_location.serialize(&mut message_contents)?;
+                }
+                FdcGunMessage::CheckFire => (),
+                FdcGunMessage::ComplianceResponse { compliance } => {
+                    message_contents.write_u8((*compliance).into())?;
                 }
             }
-            FdcGunMessage::FireReport => todo!(),
-            FdcGunMessage::FireCommand {
-                rounds,
-                ammunition,
-                target_location,
-            } => {
-                buf.write_u32::<NetworkEndian>(*rounds)?;
-                buf.write_u8((*ammunition).into())?;
-                target_location.serialize(buf)?;
-            }
-            FdcGunMessage::CheckFire => (),
-            FdcGunMessage::ComplianceResponse { compliance } => {
-                buf.write_u8((*compliance).into())?;
-            }
-        }
+            message_contents
+        };
+
+        // Write header
+        let message_length = message_contents
+            .len()
+            .try_into()
+            .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
+
+        buf.write_u32::<NetworkEndian>(message_length)?;
+        buf.write_u8(self.into())?;
+
+        // Write data
+        buf.write_all(&message_contents)?;
+
         Ok(())
     }
 
     pub fn deserialize(mut buf: impl Read) -> io::Result<Self> {
+        let _message_len = buf.read_u32::<NetworkEndian>()?;
+
         match buf.read_u8()? {
             // ComplianceResponse
             0x00 => {
@@ -139,7 +156,7 @@ impl FdcGunMessage {
 #[cfg_attr(test, derive(Arbitrary))]
 #[repr(u8)]
 pub enum Ammunition {
-    HighExplosive,
+    HighExplosive = 0x00,
 }
 
 /// Gun status
@@ -148,11 +165,11 @@ pub enum Ammunition {
 #[repr(u8)]
 pub enum Status {
     /// Non-operational if no ammunition or other mission-critical fault
-    NonOperational,
+    NonOperational = 0x00,
     /// Partial operational capability, if less than minimum ammunition counts, or non-mission-critical fault
-    PartialOperational,
+    PartialOperational = 0x01,
     /// Full operational status
-    Operational,
+    Operational = 0x02,
 }
 
 /// A gun's aim
