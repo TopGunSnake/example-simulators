@@ -1,3 +1,10 @@
+#![warn(
+    missing_docs,
+    clippy::doc_markdown,
+    clippy::missing_errors_doc,
+    // clippy::missing_panics_doc, // Turn this back on once we get the todo!() handled
+    clippy::undocumented_unsafe_blocks
+)]
 //! Provides the message definitions and utilities for the FDC - Gun comm interface
 //!
 //! Since the interface is over TCP, the message model is as follows:
@@ -60,6 +67,7 @@ pub enum FdcGunMessage {
 }
 
 impl From<&FdcGunMessage> for u8 {
+    /// Helper conversion to get the type ID for a [`FdcGunMessage`]
     fn from(msg: &FdcGunMessage) -> Self {
         match msg {
             FdcGunMessage::ComplianceResponse { .. } => 0x00,
@@ -73,6 +81,12 @@ impl From<&FdcGunMessage> for u8 {
 }
 
 impl FdcGunMessage {
+    /// Serializes an [`FdcGunMessage`] to the supplied buffer.
+    ///
+    /// # Errors
+    ///
+    /// This method returns a [`std::io::Error`] if there is data missing,
+    /// or if any data is otherwise invalid
     pub fn serialize(&self, buf: &mut impl Write) -> io::Result<()> {
         let message_contents = {
             let mut message_contents = Vec::new();
@@ -118,7 +132,12 @@ impl FdcGunMessage {
 
         Ok(())
     }
-
+    /// Deserializes an [`FdcGunMessage`] from the supplied buffer.
+    ///
+    /// # Errors
+    ///
+    /// This method returns a [`std::io::Error`] if there is data missing,
+    /// or if any data is otherwise invalid
     pub fn deserialize(mut buf: impl Read) -> io::Result<Self> {
         let _message_len = buf.read_u32::<NetworkEndian>()?;
 
@@ -156,6 +175,7 @@ impl FdcGunMessage {
 #[cfg_attr(test, derive(Arbitrary))]
 #[repr(u8)]
 pub enum Ammunition {
+    /// HE rounds
     HighExplosive = 0x00,
 }
 
@@ -184,10 +204,19 @@ pub struct TargetLocation {
 }
 
 impl TargetLocation {
-    pub fn serialize(&self, buf: &mut impl Write) -> io::Result<()> {
+    /// Serializes a [`TargetLocation`] to the supplied buffer
+    fn serialize(&self, buf: &mut impl Write) -> io::Result<()> {
         buf.write_u32::<NetworkEndian>(self.range)?;
         buf.write_u32::<NetworkEndian>(self.direction)?;
         Ok(())
+    }
+
+    /// Deserializes a [`TargetLocation`] from the supplied buffer
+    fn deserialize(mut buf: impl Read) -> io::Result<Self> {
+        let range = buf.read_u32::<NetworkEndian>()?;
+        let direction = buf.read_u32::<NetworkEndian>()?;
+
+        Ok(Self { range, direction })
     }
 }
 
@@ -196,8 +225,11 @@ impl TargetLocation {
 #[cfg_attr(test, derive(Arbitrary))]
 #[repr(u8)]
 pub enum Compliance {
+    /// Indicates that the system cannot comply with the command
     CANTCO = 0x01,
+    /// Indicates the system will comply with the command
     WILLCO = 0x02,
+    /// Indicates the system has already complied with the command
     HAVECO = 0x03,
 }
 
