@@ -4,8 +4,8 @@ Example of Simulators written in Rust. Each workspace member is either a binary 
 
 ## Roadmap
 
-- [ ] FO - FDC Message Definitions
-- [ ] FDC - Gun Message Definitions
+- [x] FO - FDC Message Definitions
+- [x] FDC - Gun Message Definitions
 - [ ] FO States
 - [ ] FDC States
 - [ ] Gun States
