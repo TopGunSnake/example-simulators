@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["fdc_gun_comms"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.59.0/core/cmp/trait.Eq.html\" title=\"trait core::cmp::Eq\">Eq</a> for <a class=\"enum\" href=\"fdc_gun_comms/enum.Ammunition.html\" title=\"enum fdc_gun_comms::Ammunition\">Ammunition</a>","synthetic":false,"types":["fdc_gun_comms::Ammunition"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
