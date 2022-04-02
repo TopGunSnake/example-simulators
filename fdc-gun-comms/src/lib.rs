@@ -46,7 +46,6 @@ pub enum FdcGunMessage {
     FireReport,
 
     /// A Command from the FDC to fire
-    #[cfg_attr(test, proptest(skip))]
     FireCommand {
         /// Number of rounds to fire
         rounds: u32,
@@ -179,7 +178,23 @@ impl FdcGunMessage {
                 Ok(FdcGunMessage::StatusReply { status, rounds })
             }
             // FireCommand
-            0x05 => todo!(),
+            0x05 => {
+                // message_contents.write_u32::<NetworkEndian>(*rounds)?;
+                //     message_contents.write_u8((*ammunition).into())?;
+                //     target_location.serialize(&mut message_contents)?;
+                let rounds = buf.read_u32::<NetworkEndian>()?;
+                let ammunition: Ammunition = buf
+                    .read_u8()?
+                    .try_into()
+                    .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
+                let target_location = TargetLocation::deserialize(buf)?;
+
+                Ok(FdcGunMessage::FireCommand {
+                    rounds,
+                    ammunition,
+                    target_location,
+                })
+            }
             // CheckFire
             0x06 => Ok(FdcGunMessage::CheckFire),
 
