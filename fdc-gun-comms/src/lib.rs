@@ -56,7 +56,6 @@ impl From<&FdcGunMessage> for u8 {
         match msg {
             FdcGunMessage::ComplianceResponse { .. } => 0x00,
             FdcGunMessage::FireReport => 0x01,
-
             FdcGunMessage::StatusRequest => 0x02,
             FdcGunMessage::StatusReply { .. } => 0x03,
             FdcGunMessage::FireCommand { .. } => 0x05,
@@ -99,12 +98,20 @@ impl FdcGunMessage {
 
     pub fn deserialize(mut buf: impl Read) -> io::Result<Self> {
         match buf.read_u8()? {
+            // ComplianceResponse
             0x00 => todo!(),
+            // FireReport
             0x01 => todo!(),
-            0x02 => todo!(),
-            0x03 => Ok(FdcGunMessage::StatusRequest),
+            // StatusRequest
+            0x02 => Ok(FdcGunMessage::StatusRequest),
+            // StatusReply
+            0x03 => todo!(),
+            // FireCommand
             0x05 => todo!(),
+            // CheckFire
             0x06 => Ok(FdcGunMessage::CheckFire),
+
+            // Unsupported types
             _ => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "Invalid Message Type",
@@ -112,6 +119,7 @@ impl FdcGunMessage {
         }
     }
 }
+
 /// Ammunition types
 #[derive(Debug, Clone, Copy, IntoPrimitive, TryFromPrimitive, PartialEq, Eq, Hash)]
 #[repr(u8)]
