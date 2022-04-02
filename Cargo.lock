@@ -99,8 +99,6 @@ dependencies = [
  "num_enum",
  "proptest",
  "proptest-derive",
- "thiserror",
- "tokio",
  "tracing",
 ]
 
