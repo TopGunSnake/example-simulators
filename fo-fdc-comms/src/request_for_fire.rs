@@ -3,11 +3,15 @@ use std::net::SocketAddrV4;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(test)]
+use proptest_derive::Arbitrary;
+
 use crate::Ammunition;
 
 /// A complete Request for Fire, the first message sent by a FO
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct WarnOrder {
     /// Callsign for the sender of this warning order
     pub src: String,
@@ -32,6 +36,7 @@ pub struct WarnOrder {
 /// Potential Mission Types for a Request for Fire
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(Arbitrary))]
 pub enum MissionType {
     /// Represents a fire mission that needs to use a series of adjustments to dial in.
     AdjustFire,
@@ -44,6 +49,7 @@ pub enum MissionType {
 /// Target Location Methods
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(Arbitrary))]
 pub enum TargetLocation {
     /// A grid target message
     Grid {
@@ -64,6 +70,7 @@ pub enum TargetLocation {
 /// A description of the target, for human interpretation. Not all fields are provided, and may be empty.
 #[derive(Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct TargetDescription {
     /// Type of target, e.g. "tanks, infantry"
     pub target_type: String,
@@ -78,6 +85,7 @@ pub struct TargetDescription {
 /// The Method of Fire requested by the FO
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(Arbitrary))]
 pub enum MethodOfFire {
     /// Indicates that the FO wants the FDC to wait for a commanded fire before beginning shots.
     AtMyCommand,
@@ -87,31 +95,18 @@ pub enum MethodOfFire {
 
 #[cfg(test)]
 mod tests {
-    use std::net::Ipv4Addr;
 
     use super::*;
+    use proptest::prelude::*;
 
-    #[test]
-    fn test_serde() {
-        let call_for_fire = WarnOrder {
-            src: "november".to_string(),
-            receiver: "talon".to_string(),
-            response_addr: SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080),
-            mission_type: MissionType::AdjustFire,
-            target_location: TargetLocation::Grid {
-                lateral: 123,
-                longitudinal: 456,
-            },
-            target_description: TargetDescription::default(),
-            danger_close: false,
-            ammunition: Some(Ammunition::HighExplosive),
-            method_of_fire: Some(MethodOfFire::TimeOnTarget(13)),
-        };
+    proptest! {
+        #[test]
+        fn test_serde(call_for_fire in any::<WarnOrder>()) {
+            let json = serde_json::to_string_pretty(&call_for_fire).unwrap();
 
-        let json = serde_json::to_string_pretty(&call_for_fire).unwrap();
+            let verified: WarnOrder = serde_json::from_str(&json).unwrap();
 
-        let verified: WarnOrder = serde_json::from_str(&json).unwrap();
-
-        assert_eq!(call_for_fire, verified);
+            assert_eq!(call_for_fire, verified);
+        }
     }
 }

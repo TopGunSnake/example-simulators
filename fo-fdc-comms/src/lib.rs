@@ -6,6 +6,9 @@ use std::net::SocketAddrV4;
 use serde::{Deserialize, Serialize};
 use tokio::net::UdpSocket;
 
+#[cfg(test)]
+use proptest_derive::Arbitrary;
+
 pub mod battle_damage_assessment;
 pub mod message_to_observer;
 pub mod readback;
@@ -16,6 +19,7 @@ pub mod shot_fire;
 #[non_exhaustive]
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(Arbitrary))]
 pub enum Ammunition {
     HighExplosive,
 }
