@@ -129,6 +129,7 @@ impl FdcGunMessage {
 
         Ok(())
     }
+
     /// Deserializes an [`FdcGunMessage`] from the supplied buffer.
     ///
     /// # Errors
@@ -161,6 +162,7 @@ impl FdcGunMessage {
     }
 }
 
+/// Serializes the fields of a [`FdcGunMessage::ComplianceResponse`]
 fn serialize_compliance_response(
     message_contents: &mut Vec<u8>,
     compliance: &Compliance,
@@ -169,6 +171,7 @@ fn serialize_compliance_response(
     Ok(())
 }
 
+/// Serializes the fields of a [`FdcGunMessage::FireCommand`]
 fn serialize_fire_command(
     message_contents: &mut Vec<u8>,
     rounds: &u32,
@@ -181,6 +184,7 @@ fn serialize_fire_command(
     Ok(())
 }
 
+/// Serializes the fields of a [`FdcGunMessage::StatusReply`]
 fn serialize_status_reply(
     message_contents: &mut Vec<u8>,
     status: &Status,
@@ -194,6 +198,7 @@ fn serialize_status_reply(
     Ok(())
 }
 
+/// Deserializes to a [`FdcGunMessage::FireCommand`]
 fn deserialize_fire_command(mut buf: impl Read) -> Result<FdcGunMessage, io::Error> {
     let rounds = buf.read_u32::<NetworkEndian>()?;
     let ammunition: Ammunition = buf
@@ -208,6 +213,7 @@ fn deserialize_fire_command(mut buf: impl Read) -> Result<FdcGunMessage, io::Err
     })
 }
 
+/// Deserializes to a [`FdcGunMessage::StatusReply`]
 fn deserialize_status_reply(mut buf: impl Read) -> Result<FdcGunMessage, io::Error> {
     let status = buf
         .read_u8()?
@@ -232,6 +238,7 @@ fn deserialize_status_reply(mut buf: impl Read) -> Result<FdcGunMessage, io::Err
     Ok(FdcGunMessage::StatusReply { status, rounds })
 }
 
+/// Deserializes to a [`FdcGunMessage::ComplianceResponse`]
 fn deserialize_compliance_response(mut buf: impl Read) -> Result<FdcGunMessage, io::Error> {
     let compliance = buf
         .read_u8()?
