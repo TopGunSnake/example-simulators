@@ -92,12 +92,7 @@ impl FdcGunMessage {
             match self {
                 FdcGunMessage::StatusRequest => (),
                 FdcGunMessage::StatusReply { status, rounds } => {
-                    message_contents.write_u8((*status).into())?;
-
-                    for (ammo_type, ammo_count) in rounds {
-                        message_contents.write_u8((*ammo_type).into())?;
-                        message_contents.write_u32::<NetworkEndian>(*ammo_count)?;
-                    }
+                    serialize_status_reply(&mut message_contents, status, rounds)?;
                 }
                 FdcGunMessage::FireReport => todo!(),
                 FdcGunMessage::FireCommand {
@@ -105,13 +100,16 @@ impl FdcGunMessage {
                     ammunition,
                     target_location,
                 } => {
-                    message_contents.write_u32::<NetworkEndian>(*rounds)?;
-                    message_contents.write_u8((*ammunition).into())?;
-                    target_location.serialize(&mut message_contents)?;
+                    serialize_fire_command(
+                        &mut message_contents,
+                        rounds,
+                        ammunition,
+                        target_location,
+                    )?;
                 }
                 FdcGunMessage::CheckFire => (),
                 FdcGunMessage::ComplianceResponse { compliance } => {
-                    message_contents.write_u8((*compliance).into())?;
+                    serialize_compliance_response(&mut message_contents, compliance)?;
                 }
             }
             message_contents
@@ -142,59 +140,15 @@ impl FdcGunMessage {
 
         match buf.read_u8()? {
             // ComplianceResponse
-            0x00 => {
-                let compliance = buf
-                    .read_u8()?
-                    .try_into()
-                    .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
-                Ok(FdcGunMessage::ComplianceResponse { compliance })
-            }
+            0x00 => deserialize_compliance_response(buf),
             // FireReport
             0x01 => todo!(),
             // StatusRequest
             0x02 => Ok(FdcGunMessage::StatusRequest),
             // StatusReply
-            0x03 => {
-                let status = buf
-                    .read_u8()?
-                    .try_into()
-                    .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
-                let rounds_chunks = buf.bytes().chunks(5);
-                let mut rounds: HashMap<Ammunition, u32> = HashMap::new();
-                for mut chunk in &rounds_chunks {
-                    let ammunition = chunk
-                        .next()
-                        .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidData))??
-                        .try_into()
-                        .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
-
-                    let count = chunk.collect::<Result<Vec<u8>, _>>()?;
-                    let count: [u8; 4] = count.try_into().map_err(|_| {
-                        io::Error::new(io::ErrorKind::InvalidData, "Not enough data")
-                    })?;
-                    let count = u32::from_be_bytes(count);
-                    rounds.insert(ammunition, count);
-                }
-                Ok(FdcGunMessage::StatusReply { status, rounds })
-            }
+            0x03 => deserialize_status_reply(buf),
             // FireCommand
-            0x05 => {
-                // message_contents.write_u32::<NetworkEndian>(*rounds)?;
-                //     message_contents.write_u8((*ammunition).into())?;
-                //     target_location.serialize(&mut message_contents)?;
-                let rounds = buf.read_u32::<NetworkEndian>()?;
-                let ammunition: Ammunition = buf
-                    .read_u8()?
-                    .try_into()
-                    .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
-                let target_location = TargetLocation::deserialize(buf)?;
-
-                Ok(FdcGunMessage::FireCommand {
-                    rounds,
-                    ammunition,
-                    target_location,
-                })
-            }
+            0x05 => deserialize_fire_command(buf),
             // CheckFire
             0x06 => Ok(FdcGunMessage::CheckFire),
 
@@ -205,6 +159,85 @@ impl FdcGunMessage {
             )),
         }
     }
+}
+
+fn serialize_compliance_response(
+    message_contents: &mut Vec<u8>,
+    compliance: &Compliance,
+) -> Result<(), io::Error> {
+    message_contents.write_u8((*compliance).into())?;
+    Ok(())
+}
+
+fn serialize_fire_command(
+    message_contents: &mut Vec<u8>,
+    rounds: &u32,
+    ammunition: &Ammunition,
+    target_location: &TargetLocation,
+) -> Result<(), io::Error> {
+    message_contents.write_u32::<NetworkEndian>(*rounds)?;
+    message_contents.write_u8((*ammunition).into())?;
+    target_location.serialize(message_contents)?;
+    Ok(())
+}
+
+fn serialize_status_reply(
+    message_contents: &mut Vec<u8>,
+    status: &Status,
+    rounds: &HashMap<Ammunition, u32>,
+) -> Result<(), io::Error> {
+    message_contents.write_u8((*status).into())?;
+    for (ammo_type, ammo_count) in rounds {
+        message_contents.write_u8((*ammo_type).into())?;
+        message_contents.write_u32::<NetworkEndian>(*ammo_count)?;
+    }
+    Ok(())
+}
+
+fn deserialize_fire_command(mut buf: impl Read) -> Result<FdcGunMessage, io::Error> {
+    let rounds = buf.read_u32::<NetworkEndian>()?;
+    let ammunition: Ammunition = buf
+        .read_u8()?
+        .try_into()
+        .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
+    let target_location = TargetLocation::deserialize(buf)?;
+    Ok(FdcGunMessage::FireCommand {
+        rounds,
+        ammunition,
+        target_location,
+    })
+}
+
+fn deserialize_status_reply(mut buf: impl Read) -> Result<FdcGunMessage, io::Error> {
+    let status = buf
+        .read_u8()?
+        .try_into()
+        .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
+    let rounds_chunks = buf.bytes().chunks(5);
+    let mut rounds: HashMap<Ammunition, u32> = HashMap::new();
+    for mut chunk in &rounds_chunks {
+        let ammunition = chunk
+            .next()
+            .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidData))??
+            .try_into()
+            .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
+
+        let count = chunk.collect::<Result<Vec<u8>, _>>()?;
+        let count: [u8; 4] = count
+            .try_into()
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Not enough data"))?;
+        let count = u32::from_be_bytes(count);
+        rounds.insert(ammunition, count);
+    }
+    Ok(FdcGunMessage::StatusReply { status, rounds })
+}
+
+fn deserialize_compliance_response(mut buf: impl Read) -> Result<FdcGunMessage, io::Error> {
+    let compliance = buf
+        .read_u8()?
+        .try_into()
+        .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
+    Ok(FdcGunMessage::ComplianceResponse { compliance })
 }
 
 /// Ammunition types
