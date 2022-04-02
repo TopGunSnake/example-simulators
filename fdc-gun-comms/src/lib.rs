@@ -17,6 +17,7 @@ use std::{
 };
 
 use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
+use itertools::Itertools;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 #[cfg(test)]
@@ -33,7 +34,6 @@ pub enum FdcGunMessage {
     StatusRequest,
 
     /// A reply for a status request
-    #[cfg_attr(test, proptest(skip))]
     StatusReply {
         /// High-level status
         status: Status,
@@ -155,7 +155,29 @@ impl FdcGunMessage {
             // StatusRequest
             0x02 => Ok(FdcGunMessage::StatusRequest),
             // StatusReply
-            0x03 => todo!(),
+            0x03 => {
+                let status = buf
+                    .read_u8()?
+                    .try_into()
+                    .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
+                let rounds_chunks = buf.bytes().chunks(5);
+                let mut rounds: HashMap<Ammunition, u32> = HashMap::new();
+                for mut chunk in &rounds_chunks {
+                    let ammunition = chunk
+                        .next()
+                        .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidData))??
+                        .try_into()
+                        .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
+
+                    let count = chunk.collect::<Result<Vec<u8>, _>>()?;
+                    let count: [u8; 4] = count.try_into().map_err(|_| {
+                        io::Error::new(io::ErrorKind::InvalidData, "Not enough data")
+                    })?;
+                    let count = u32::from_be_bytes(count);
+                    rounds.insert(ammunition, count);
+                }
+                Ok(FdcGunMessage::StatusReply { status, rounds })
+            }
             // FireCommand
             0x05 => todo!(),
             // CheckFire
