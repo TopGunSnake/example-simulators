@@ -145,7 +145,7 @@ pub(crate) async fn state_machine_loop(
                 debug!("RFF Readback: {:?}", rff_readback);
                 //TODO: Proccess any errors
                 info!("Readback confirmed, sending SolidReadback...");
-                to_fdc.send(ToFdcMessage::SolidReadback(SolidReadback))?
+                to_fdc.send(ToFdcMessage::SolidReadback(SolidReadback::default()))?
             }
             // MTO Received while Requesting a Fire Mission
             FromFdcMessage::MessageToObserver(mto) if state.is_requesting() => {

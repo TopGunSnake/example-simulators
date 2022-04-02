@@ -5,16 +5,26 @@ use serde::{Deserialize, Serialize};
 use proptest_derive::Arbitrary;
 
 /// A readback confirmation message
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[serde(tag = "tag", rename = "solid_readback")]
 #[cfg_attr(test, derive(Arbitrary))]
-pub struct SolidReadback;
+pub struct SolidReadback {}
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
     use proptest::prelude::*;
+
+    #[test]
+    #[ignore = "Available for debugging only"]
+    fn view_json() {
+        let message = SolidReadback {};
+
+        let json = serde_json::to_string_pretty(&message).unwrap();
+        println!("{message:?} : {json}");
+    }
 
     proptest! {
         #[test]
