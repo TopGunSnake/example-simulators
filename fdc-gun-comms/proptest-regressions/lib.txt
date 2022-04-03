@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 7c581a3f63e4fd858d6d6c6c4bd041076390acd9a4a827fcfb152c763d9f8176 # shrinks to message = StatusRequest
+cc 9c8b2fb9c1e3d868cd689c1a895e37be5b45f1e081f37d2ab1dbc33a4bff8631 # shrinks to message = FireReport { shot: 0, total_shots: 0, ammunition: HighExplosive, target_location: TargetLocation { range: 0, direction: 0 }, time_to_target: 0 }

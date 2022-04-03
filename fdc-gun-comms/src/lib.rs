@@ -11,14 +11,9 @@
 //! Raw Bytes (`Vec<u8>`) <-> [`FdcGunMessage`] with bytes and a message ID,
 //! and finally specific message instances with respective strong types.
 
-use std::{
-    collections::HashMap,
-    io::{self, Read, Write},
-};
+use std::{collections::HashMap, io};
 
-use byteorder::NetworkEndian;
-use bytes::{Buf, BufMut, BytesMut};
-use itertools::Itertools;
+use bytes::{Buf, BufMut};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 #[cfg(test)]
@@ -189,28 +184,6 @@ impl FdcGunMessage {
             )),
         }
     }
-
-    /// Provides a length in bytes for the contents of a message.
-    pub fn length_in_bytes(&self) -> usize {
-        match self {
-            FdcGunMessage::StatusRequest => 1,
-            FdcGunMessage::StatusReply { status, rounds } => 2 + rounds.len() * 5,
-            FdcGunMessage::FireReport {
-                shot,
-                total_shots,
-                ammunition,
-                target_location,
-                time_to_target,
-            } => 1 + 1 + 1 + 4 * 4 + 4,
-            FdcGunMessage::FireCommand {
-                rounds,
-                ammunition,
-                target_location,
-            } => 4 + 1 + 4 * 4,
-            FdcGunMessage::CheckFire => 1,
-            FdcGunMessage::ComplianceResponse { compliance } => 1 + 1,
-        }
-    }
 }
 
 /// Serializes the fields of a [`FdcGunMessage::ComplianceResponse`]
@@ -242,6 +215,7 @@ fn serialize_status_reply(
     rounds: &HashMap<Ammunition, u32>,
 ) -> Result<(), io::Error> {
     message_contents.put_u8((*status).into());
+    message_contents.reserve(5 * rounds.len());
     for (ammo_type, ammo_count) in rounds {
         message_contents.put_u8((*ammo_type).into());
         message_contents.put_u32(*ammo_count);
@@ -291,7 +265,7 @@ fn deserialize_status_reply(mut buf: impl Buf) -> Result<FdcGunMessage, io::Erro
     let rounds_chunks = buf.chunk().chunks(5);
 
     let mut rounds: HashMap<Ammunition, u32> = HashMap::new();
-    for mut chunk in rounds_chunks {
+    for chunk in rounds_chunks {
         let (ammo_byte, count_bytes) = chunk
             .split_first()
             .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidData))?;

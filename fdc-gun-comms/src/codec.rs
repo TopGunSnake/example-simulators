@@ -8,7 +8,8 @@ use crate::FdcGunMessage;
 const MAX_BYTES: usize = 8 * 1024; // 8 KB
 const MESSAGE_LEN_SIZE: usize = 4; // 4 Bytes for the message length marker.
 
-struct FdcGunMessageDecoder {}
+/// [`tokio_util::codec::Decoder`] for [`FdcGunMessage`]
+pub struct FdcGunMessageDecoder {}
 
 impl Decoder for FdcGunMessageDecoder {
     type Item = FdcGunMessage;
@@ -58,13 +59,14 @@ impl Decoder for FdcGunMessageDecoder {
     }
 }
 
-struct FdcGunMessageEncoder {}
+/// [`tokio_util::codec::Encoder`] for [`FdcGunMessage`]
+pub struct FdcGunMessageEncoder {}
 
 impl Encoder<FdcGunMessage> for FdcGunMessageEncoder {
     type Error = std::io::Error;
 
     fn encode(&mut self, item: FdcGunMessage, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        dst.reserve(MESSAGE_LEN_SIZE + item.length_in_bytes());
+        dst.reserve(MESSAGE_LEN_SIZE + 30);
         item.serialize(dst)?;
         Ok(())
     }
