@@ -9,6 +9,7 @@ const MAX_BYTES: usize = 8 * 1024; // 8 KB
 const MESSAGE_LEN_SIZE: usize = 4; // 4 Bytes for the message length marker.
 
 /// [`tokio_util::codec::Decoder`] for [`FdcGunMessage`]
+#[derive(Default)]
 pub struct FdcGunMessageDecoder {}
 
 impl Decoder for FdcGunMessageDecoder {
@@ -48,8 +49,9 @@ impl Decoder for FdcGunMessageDecoder {
         }
 
         // Use advance to modify src such that it no longer contains this frame.
-        let data = src[MESSAGE_LEN_SIZE..MESSAGE_LEN_SIZE + length].to_vec();
-        src.advance(MESSAGE_LEN_SIZE + length);
+        // Get the data, from the last byte of the header (inclusive) to the end of the expected message
+        let data = src[..MESSAGE_LEN_SIZE + 1 + length].to_vec();
+        src.advance(MESSAGE_LEN_SIZE + 1 + length);
 
         // Convert the data into an FdcGunMessage, or fail if invalid.
         match FdcGunMessage::deserialize(data.as_slice()) {
@@ -60,6 +62,7 @@ impl Decoder for FdcGunMessageDecoder {
 }
 
 /// [`tokio_util::codec::Encoder`] for [`FdcGunMessage`]
+#[derive(Default)]
 pub struct FdcGunMessageEncoder {}
 
 impl Encoder<FdcGunMessage> for FdcGunMessageEncoder {
@@ -69,5 +72,29 @@ impl Encoder<FdcGunMessage> for FdcGunMessageEncoder {
         dst.reserve(MESSAGE_LEN_SIZE + 30);
         item.serialize(dst)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+
+        #[test]
+        fn test_codec(message in any::<FdcGunMessage>()) {
+            let mut buffer = BytesMut::new();
+
+            let mut encoder = FdcGunMessageEncoder::default();
+
+            let mut decoder = FdcGunMessageDecoder::default();
+
+            encoder.encode(message.clone(), &mut buffer).unwrap();
+
+            let decoded = decoder.decode(&mut buffer).unwrap().unwrap();
+
+            assert_eq!(message, decoded);
+        }
     }
 }
