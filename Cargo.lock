@@ -95,10 +95,12 @@ name = "fdc-gun-comms"
 version = "0.1.0"
 dependencies = [
  "byteorder",
+ "bytes",
  "itertools",
  "num_enum",
  "proptest",
  "proptest-derive",
+ "tokio-util",
 ]
 
 [[package]]
@@ -655,6 +657,7 @@ dependencies = [
  "futures-sink",
  "pin-project-lite",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
