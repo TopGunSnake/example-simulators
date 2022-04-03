@@ -5,4 +5,4 @@ edition = "2021"
 publish = false
 
 [workspace]
-members = ["fo_sim", "fo-fdc-comms", "fdc-gun-comms"]
+members = ["fo_sim", "fo-fdc-comms", "fdc-gun-comms", "fdc-sim"]

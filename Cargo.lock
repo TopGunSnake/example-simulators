@@ -104,6 +104,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fdc-sim"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "fo-fdc-comms",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
