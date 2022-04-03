@@ -1,5 +1,4 @@
 //! Container module for Request for Fire (RFF)
-use std::net::SocketAddrV4;
 
 use serde::{Deserialize, Serialize};
 
@@ -17,8 +16,6 @@ pub struct WarnOrder {
     pub src: String,
     /// Callsign for the intended receiver of this warning order
     pub receiver: String,
-    /// The address that the FDC will send all traffic to the FO via
-    pub response_addr: SocketAddrV4,
     /// The type of mission for this warning order
     pub mission_type: MissionType,
     /// The target location and method of locating

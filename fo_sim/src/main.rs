@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
     select! {
         _ = tokio::signal::ctrl_c() => {state_machine_handle.abort()}
     }
-    let results = try_join!(fo_fdc_commhandler_handle, state_machine_handle);
+    let _results = try_join!(fo_fdc_commhandler_handle, state_machine_handle);
 
     //TODO: Unpack the results to propagate relevant errors.
     Ok(())
