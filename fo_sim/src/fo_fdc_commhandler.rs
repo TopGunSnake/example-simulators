@@ -1,47 +1,73 @@
 //! Contains the message types that the FO sim can send/receive, as well as the communication tasks (send and receive)
 //!
-use fo_fdc_comms::{
-    battle_damage_assessment::BattleDamageAssessment,
-    message_to_observer::MessageToObserver,
-    readback::SolidReadback,
-    request_for_fire::WarnOrder,
-    shot_fire::{RoundsComplete, Shot, Splash},
+use std::sync::Arc;
+
+use anyhow::Result;
+use fo_fdc_comms::FoFdcMessage;
+use tokio::{
+    join,
+    net::UdpSocket,
+    sync::mpsc::{UnboundedReceiver, UnboundedSender},
 };
 
-/// Represents messages that can be received from the FDC
-#[derive(Debug, PartialEq)]
-pub(crate) enum FromFdcMessage {
-    /// A readback for a RRF
-    RequestForFireConfirm(WarnOrder),
-    /// A Message to Observer, received after the FDC has received RFF
-    MessageToObserver(MessageToObserver),
-    /// Shot Call
-    Shot(Shot),
-    /// Splash Call
-    Splash(Splash),
-    /// Rounds Complete Call
-    RoundsComplete(RoundsComplete),
-    /// Indicates a SolidReadback (A message was confirmed as readback correctly)
-    /// Primarily used for the readback of a MTO
-    SolidReadback(SolidReadback),
+/// Provides a reader/writer loop, handling writes from the
+pub(crate) async fn fo_fdc_commhandler_loop(
+    to_fdc: UnboundedReceiver<FoFdcMessage>,
+    from_fdc: UnboundedSender<FoFdcMessage>,
+) -> Result<()> {
+    let socket = UdpSocket::bind("127.0.0.1:8080").await?;
+    socket.connect("127.0.0.1:8081").await?;
+
+    // Spin off listener thread
+    let socket = Arc::new(socket);
+    let recv_handle = {
+        let socket = Arc::clone(&socket);
+        tokio::spawn(async move { recv_loop(from_fdc, socket).await })
+    };
+
+    // Spin off writer thread
+    let send_handle = tokio::spawn(async move { send_loop(to_fdc, socket).await });
+
+    let _ = join!(recv_handle, send_handle);
+
+    Ok(())
 }
 
-/// Represents messages that can be sent to the FDC
-#[derive(Debug, PartialEq)]
-pub(crate) enum ToFdcMessage {
-    /// The Request for Fire (RFF), the first message a FO will send the FDC to begin a fire mission
-    RequestForFire(WarnOrder),
-    /// Readback for an MTO
-    MessageToObserverConfirm(MessageToObserver),
-    /// Shot Readback
-    ShotConfirm(Shot),
-    /// Splash Readback
-    SplashConfirm(Splash),
-    /// RoundsComplete Readback
-    RoundsCompleteConfirm(RoundsComplete),
-    /// The Battle Damage Assessment (BDA), the last message a FO will send the FDC to end a fire mission
-    BattleDamageAssessment(BattleDamageAssessment),
-    /// Indicates a SolidReadback (A message was confirmed as readback correctly)
-    /// Primarily used for the readback of a RRF or BDA
-    SolidReadback(SolidReadback),
+async fn recv_loop(
+    from_fdc_sender: UnboundedSender<FoFdcMessage>,
+    socket: Arc<UdpSocket>,
+) -> Result<()> {
+    let mut buffer = Vec::with_capacity(1024);
+
+    while let Ok(_bytes_read) = socket.recv(&mut buffer).await {
+        let value: FoFdcMessage = serde_json::from_slice(&buffer)?;
+
+        from_fdc_sender.send(value)?;
+    }
+    Ok(())
+}
+
+async fn send_loop(
+    mut to_fdc_receiver: UnboundedReceiver<FoFdcMessage>,
+    socket: Arc<UdpSocket>,
+) -> Result<()> {
+    while let Some(message_to_fdc) = to_fdc_receiver.recv().await {
+        let bytes = match message_to_fdc {
+            FoFdcMessage::RequestForFire(msg) => serde_json::to_vec(&msg),
+            FoFdcMessage::MessageToObserverConfirm(msg) => serde_json::to_vec(&msg),
+            FoFdcMessage::ShotConfirm(msg) => serde_json::to_vec(&msg),
+            FoFdcMessage::SplashConfirm(msg) => serde_json::to_vec(&msg),
+            FoFdcMessage::RoundsCompleteConfirm(msg) => serde_json::to_vec(&msg),
+            FoFdcMessage::BattleDamageAssessment(msg) => serde_json::to_vec(&msg),
+            FoFdcMessage::SolidReadback(msg) => serde_json::to_vec(&msg),
+            _ => panic!(
+                "Unsupported message was sent for transmission to the FDC: {:?}",
+                message_to_fdc
+            ),
+        }?;
+
+        socket.send(&bytes).await?;
+    }
+
+    Ok(())
 }

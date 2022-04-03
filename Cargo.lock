@@ -95,10 +95,12 @@ name = "fdc-gun-comms"
 version = "0.1.0"
 dependencies = [
  "byteorder",
+ "bytes",
  "itertools",
  "num_enum",
  "proptest",
  "proptest-derive",
+ "tokio-util",
 ]
 
 [[package]]
@@ -111,6 +113,8 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 name = "fo-fdc-comms"
 version = "0.1.0"
 dependencies = [
+ "proptest",
+ "proptest-derive",
  "regex",
  "serde",
  "serde_json",
@@ -653,6 +657,7 @@ dependencies = [
  "futures-sink",
  "pin-project-lite",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

@@ -11,17 +11,15 @@
 //! Raw Bytes (`Vec<u8>`) <-> [`FdcGunMessage`] with bytes and a message ID,
 //! and finally specific message instances with respective strong types.
 
-use std::{
-    collections::HashMap,
-    io::{self, Read, Write},
-};
+use std::{collections::HashMap, io};
 
-use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
-use itertools::Itertools;
+use bytes::{Buf, BufMut};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 #[cfg(test)]
 use proptest_derive::Arbitrary;
+
+pub mod codec;
 
 /// High-level message definition.
 ///
@@ -99,7 +97,7 @@ impl FdcGunMessage {
     ///
     /// This method returns a [`std::io::Error`] if there is data missing,
     /// or if any data is otherwise invalid
-    pub fn serialize(&self, buf: &mut impl Write) -> io::Result<()> {
+    pub fn serialize(&self, buf: &mut impl BufMut) -> io::Result<()> {
         let message_contents = {
             let mut message_contents = Vec::new();
             match self {
@@ -147,11 +145,11 @@ impl FdcGunMessage {
             .try_into()
             .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
 
-        buf.write_u32::<NetworkEndian>(message_length)?;
-        buf.write_u8(self.into())?;
+        buf.put_u32(message_length);
+        buf.put_u8(self.into());
 
         // Write data
-        buf.write_all(&message_contents)?;
+        buf.put(message_contents.as_slice());
 
         Ok(())
     }
@@ -162,10 +160,10 @@ impl FdcGunMessage {
     ///
     /// This method returns a [`std::io::Error`] if there is data missing,
     /// or if any data is otherwise invalid
-    pub fn deserialize(mut buf: impl Read) -> io::Result<Self> {
-        let _message_len = buf.read_u32::<NetworkEndian>()?;
+    pub fn deserialize(mut buf: impl Buf) -> io::Result<Self> {
+        let _message_len = buf.get_u32();
 
-        match buf.read_u8()? {
+        match buf.get_u8() {
             // ComplianceResponse
             0x00 => deserialize_compliance_response(buf),
             // FireReport
@@ -193,7 +191,7 @@ fn serialize_compliance_response(
     message_contents: &mut Vec<u8>,
     compliance: &Compliance,
 ) -> Result<(), io::Error> {
-    message_contents.write_u8((*compliance).into())?;
+    message_contents.put_u8((*compliance).into());
     Ok(())
 }
 
@@ -204,9 +202,9 @@ fn serialize_fire_command(
     ammunition: &Ammunition,
     target_location: &TargetLocation,
 ) -> Result<(), io::Error> {
-    message_contents.write_u32::<NetworkEndian>(*rounds)?;
-    message_contents.write_u8((*ammunition).into())?;
-    target_location.serialize(message_contents)?;
+    message_contents.put_u32(*rounds);
+    message_contents.put_u8((*ammunition).into());
+    target_location.serialize(message_contents);
     Ok(())
 }
 
@@ -216,10 +214,11 @@ fn serialize_status_reply(
     status: &Status,
     rounds: &HashMap<Ammunition, u32>,
 ) -> Result<(), io::Error> {
-    message_contents.write_u8((*status).into())?;
+    message_contents.put_u8((*status).into());
+    message_contents.reserve(5 * rounds.len());
     for (ammo_type, ammo_count) in rounds {
-        message_contents.write_u8((*ammo_type).into())?;
-        message_contents.write_u32::<NetworkEndian>(*ammo_count)?;
+        message_contents.put_u8((*ammo_type).into());
+        message_contents.put_u32(*ammo_count);
     }
     Ok(())
 }
@@ -233,22 +232,22 @@ fn serialize_fire_report(
     target_location: &TargetLocation,
     time_to_target: &u32,
 ) -> Result<(), io::Error> {
-    message_contents.write_u8(*shot)?;
-    message_contents.write_u8(*total_shots)?;
-    message_contents.write_u8((*ammunition).into())?;
-    target_location.serialize(message_contents)?;
-    message_contents.write_u32::<NetworkEndian>(*time_to_target)?;
+    message_contents.put_u8(*shot);
+    message_contents.put_u8(*total_shots);
+    message_contents.put_u8((*ammunition).into());
+    target_location.serialize(message_contents);
+    message_contents.put_u32(*time_to_target);
     Ok(())
 }
 
 /// Deserializes to a [`FdcGunMessage::FireCommand`]
-fn deserialize_fire_command(mut buf: impl Read) -> Result<FdcGunMessage, io::Error> {
-    let rounds = buf.read_u32::<NetworkEndian>()?;
+fn deserialize_fire_command(mut buf: impl Buf) -> Result<FdcGunMessage, io::Error> {
+    let rounds = buf.get_u32();
     let ammunition: Ammunition = buf
-        .read_u8()?
+        .get_u8()
         .try_into()
         .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
-    let target_location = TargetLocation::deserialize(&mut buf)?;
+    let target_location = TargetLocation::deserialize(&mut buf);
     Ok(FdcGunMessage::FireCommand {
         rounds,
         ammunition,
@@ -257,49 +256,54 @@ fn deserialize_fire_command(mut buf: impl Read) -> Result<FdcGunMessage, io::Err
 }
 
 /// Deserializes to a [`FdcGunMessage::StatusReply`]
-fn deserialize_status_reply(mut buf: impl Read) -> Result<FdcGunMessage, io::Error> {
+fn deserialize_status_reply(mut buf: impl Buf) -> Result<FdcGunMessage, io::Error> {
     let status = buf
-        .read_u8()?
+        .get_u8()
         .try_into()
         .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
-    let rounds_chunks = buf.bytes().chunks(5);
+
+    let rounds_chunks = buf.chunk().chunks(5);
+
     let mut rounds: HashMap<Ammunition, u32> = HashMap::new();
-    for mut chunk in &rounds_chunks {
-        let ammunition = chunk
-            .next()
-            .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidData))??
+    for chunk in rounds_chunks {
+        let (ammo_byte, count_bytes) = chunk
+            .split_first()
+            .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidData))?;
+
+        let ammunition = (*ammo_byte)
             .try_into()
             .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
 
-        let count = chunk.collect::<Result<Vec<u8>, _>>()?;
-        let count: [u8; 4] = count
+        // let count = chunk.collect::<Result<Vec<u8>, _>>()?;
+        let count: [u8; 4] = count_bytes
             .try_into()
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Not enough data"))?;
         let count = u32::from_be_bytes(count);
         rounds.insert(ammunition, count);
     }
+
     Ok(FdcGunMessage::StatusReply { status, rounds })
 }
 
 /// Deserializes to a [`FdcGunMessage::ComplianceResponse`]
-fn deserialize_compliance_response(mut buf: impl Read) -> Result<FdcGunMessage, io::Error> {
+fn deserialize_compliance_response(mut buf: impl Buf) -> Result<FdcGunMessage, io::Error> {
     let compliance = buf
-        .read_u8()?
+        .get_u8()
         .try_into()
         .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
     Ok(FdcGunMessage::ComplianceResponse { compliance })
 }
 
 /// Deserializes to a [`FdcGunMessage::FireReport`]
-fn deserialize_fire_report(mut buf: impl Read) -> Result<FdcGunMessage, io::Error> {
-    let shot = buf.read_u8()?;
-    let total_shots = buf.read_u8()?;
+fn deserialize_fire_report(mut buf: impl Buf) -> Result<FdcGunMessage, io::Error> {
+    let shot = buf.get_u8();
+    let total_shots = buf.get_u8();
     let ammunition = buf
-        .read_u8()?
+        .get_u8()
         .try_into()
         .map_err(|conv_err| io::Error::new(io::ErrorKind::InvalidData, conv_err))?;
-    let target_location = TargetLocation::deserialize(&mut buf)?;
-    let time_to_target = buf.read_u32::<NetworkEndian>()?;
+    let target_location = TargetLocation::deserialize(&mut buf);
+    let time_to_target = buf.get_u32();
 
     Ok(FdcGunMessage::FireReport {
         shot,
@@ -345,18 +349,17 @@ pub struct TargetLocation {
 
 impl TargetLocation {
     /// Serializes a [`TargetLocation`] to the supplied buffer
-    fn serialize(&self, buf: &mut impl Write) -> io::Result<()> {
-        buf.write_u32::<NetworkEndian>(self.range)?;
-        buf.write_u32::<NetworkEndian>(self.direction)?;
-        Ok(())
+    fn serialize(&self, buf: &mut impl BufMut) {
+        buf.put_u32(self.range);
+        buf.put_u32(self.direction);
     }
 
     /// Deserializes a [`TargetLocation`] from the supplied buffer
-    fn deserialize(buf: &mut impl Read) -> io::Result<Self> {
-        let range = buf.read_u32::<NetworkEndian>()?;
-        let direction = buf.read_u32::<NetworkEndian>()?;
+    fn deserialize(buf: &mut impl Buf) -> Self {
+        let range = buf.get_u32();
+        let direction = buf.get_u32();
 
-        Ok(Self { range, direction })
+        Self { range, direction }
     }
 }
 
