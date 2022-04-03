@@ -153,16 +153,23 @@ pub(crate) async fn state_machine_loop(
     let mut state = FoState::Offline;
     let message_process_span = info_span!("message_process");
     let state_machine_run_span = info_span!("state_run");
+    info!("Starting state machine...");
     loop {
+        trace!("Looping...");
+
         let message = match message_queue.try_recv() {
             Ok(message) => Some(message),
             Err(TryRecvError::Empty) => None,
             Err(TryRecvError::Disconnected) => break,
         };
 
+        tokio::task::yield_now().await;
+
+        trace!("Checking for messages");
         if let Some(message) = message {
-            trace!("Received message: {:?}", message);
+            debug!("Received message: {:?}", message);
             let _enter = message_process_span.enter();
+            trace!("Entering message processor");
             match (message, state) {
                 //TODO: Hook in an external configuration/commander to initiate calls for fire.
 
@@ -315,6 +322,7 @@ pub(crate) async fn state_machine_loop(
         }
 
         let _state_run_enter = state_machine_run_span.enter();
+        trace!("Entering the state runner");
         // Run behavior for the state
         match state {
             FoState::Offline => (),
