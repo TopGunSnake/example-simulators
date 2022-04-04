@@ -208,6 +208,12 @@
 <span id="206">206</span>
 <span id="207">207</span>
 <span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides the functions and enums for maintaining the FDC state machine.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! The FDC State Machine uses the top level [`FdcState`] for representing the state of the FDC.</span>
@@ -228,15 +234,21 @@
 };
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">info_span</span>, <span class="ident">trace</span>, <span class="ident">warn</span>};
 
+<span class="doccomment">/// The State of the FDC</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
 <span class="kw">enum</span> <span class="ident">FdcState</span> {
+    <span class="doccomment">/// Indicates disconnected from the FO</span>
     <span class="ident">Offline</span>,
+    <span class="doccomment">/// Indicates connected to the FO</span>
     <span class="ident">Online</span> { <span class="ident">state</span>: <span class="ident">OnlineState</span> },
 }
 
+<span class="doccomment">/// Substates of the FDC when Online</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
 <span class="kw">enum</span> <span class="ident">OnlineState</span> {
+    <span class="doccomment">/// Indicates the FDC is waiting for RFF</span>
     <span class="ident">Waiting</span>,
+    <span class="doccomment">/// Indicates the FDC is processing and/or executing a RFF</span>
     <span class="ident">Firing</span>,
 }
 

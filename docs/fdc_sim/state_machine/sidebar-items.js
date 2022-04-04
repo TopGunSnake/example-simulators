@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["FdcState",""],["OnlineState",""]],"fn":[["state_machine_loop","Asynchronous executor loop for managing the state machine."]]});
+initSidebarItems({"enum":[["FdcState","The State of the FDC"],["OnlineState","Substates of the FDC when Online"]],"fn":[["state_machine_loop","Asynchronous executor loop for managing the state machine."]]});

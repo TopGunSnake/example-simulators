@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["fo_fdc_commhandler_loop","Provides a reader/writer loop, handling writes from the"],["recv_loop",""],["send_loop",""]]});
+initSidebarItems({"fn":[["fo_fdc_commhandler_loop","Provides a reader/writer loop, sending data from `to_fo_rx` to the FO over UDP, and placing data received from the FO in the `from_fo_tx`."],["recv_loop","Receive loop, for handling receipt over UDP"],["send_loop","Send loop, for sending data over UDP"]]});

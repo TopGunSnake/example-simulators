@@ -11,7 +11,8 @@ use tokio::{
 };
 use tracing::{debug, trace};
 
-/// Provides a reader/writer loop, handling writes from the
+/// Provides a reader/writer loop, sending data from `to_fo_rx` to the FO over UDP,
+/// and placing data received from the FO in the `from_fo_tx`.
 pub(crate) async fn fo_fdc_commhandler_loop(
     to_fo_rx: UnboundedReceiver<FoFdcMessage>,
     from_fo_tx: UnboundedSender<FoFdcMessage>,
@@ -41,6 +42,7 @@ pub(crate) async fn fo_fdc_commhandler_loop(
     Ok(())
 }
 
+/// Receive loop, for handling receipt over UDP
 async fn recv_loop(
     from_fo_tx: UnboundedSender<FoFdcMessage>,
     fo_socket: Arc<UdpSocket>,
@@ -62,6 +64,7 @@ async fn recv_loop(
     // Ok(())
 }
 
+/// Send loop, for sending data over UDP
 async fn send_loop(
     mut to_fo_rx: UnboundedReceiver<FoFdcMessage>,
     fo_socket: Arc<UdpSocket>,

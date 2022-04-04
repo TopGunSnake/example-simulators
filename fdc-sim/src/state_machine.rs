@@ -18,15 +18,21 @@ use tokio::{
 };
 use tracing::{debug, error, info, info_span, trace, warn};
 
+/// The State of the FDC
 #[derive(Debug, Clone, Copy)]
 enum FdcState {
+    /// Indicates disconnected from the FO
     Offline,
+    /// Indicates connected to the FO
     Online { state: OnlineState },
 }
 
+/// Substates of the FDC when Online
 #[derive(Debug, Clone, Copy)]
 enum OnlineState {
+    /// Indicates the FDC is waiting for RFF
     Waiting,
+    /// Indicates the FDC is processing and/or executing a RFF
     Firing,
 }
 

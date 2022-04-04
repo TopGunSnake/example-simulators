@@ -7,6 +7,7 @@ use crate::{fo_fdc_commhandler::fo_fdc_commhandler_loop, state_machine::state_ma
 mod fo_fdc_commhandler;
 mod state_machine;
 
+/// Entry point for the FDC simulator
 #[tokio::main]
 async fn main() -> Result<()> {
     // tracing_subscriber::fmt::init();
