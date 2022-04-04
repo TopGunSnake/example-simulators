@@ -5,9 +5,9 @@ use std::sync::Arc;
 use anyhow::Result;
 use fo_fdc_comms::FoFdcMessage;
 use tokio::{
-    join,
     net::UdpSocket,
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
+    try_join,
 };
 use tracing::debug;
 
@@ -25,13 +25,19 @@ pub(crate) async fn fo_fdc_commhandler_loop(
     let socket = Arc::new(socket);
     let recv_handle = {
         let socket = Arc::clone(&socket);
-        tokio::spawn(async move { recv_loop(from_fdc, socket).await })
+        tokio::task::Builder::new()
+            .name("receive loop")
+            .spawn(async move { recv_loop(from_fdc, socket).await })
     };
 
     // Spin off writer thread
-    let send_handle = tokio::spawn(async move { send_loop(to_fdc, socket).await });
+    let send_handle = tokio::task::Builder::new()
+        .name("send loop")
+        .spawn(async move { send_loop(to_fdc, socket).await });
 
-    let _ = join!(recv_handle, send_handle);
+    let (left, right) = try_join!(recv_handle, send_handle)?;
+    left?;
+    right?;
 
     Ok(())
 }
@@ -42,12 +48,16 @@ async fn recv_loop(
 ) -> Result<()> {
     let mut buffer = vec![0; 24 * 1024];
 
-    while let Ok(bytes_read) = socket.recv(&mut buffer).await {
-        let value: FoFdcMessage = serde_json::from_slice(&buffer[..bytes_read])?;
-        debug!("Received {:?}", value);
-        from_fdc_sender.send(value)?;
+    loop {
+        match socket.recv(&mut buffer).await {
+            Ok(bytes_read) => {
+                let value: FoFdcMessage = serde_json::from_slice(&buffer[..bytes_read])?;
+                debug!("Received {:?}", value);
+                from_fdc_sender.send(value)?;
+            }
+            Err(err) => return Err(err.into()),
+        };
     }
-    Ok(())
 }
 
 async fn send_loop(
@@ -57,32 +67,13 @@ async fn send_loop(
     while let Some(message_to_fdc) = to_fdc_receiver.recv().await {
         debug!("Sending {:?}", message_to_fdc);
         let (message_json, bytes) = match message_to_fdc {
-            FoFdcMessage::RequestForFire(..) => (
-                serde_json::to_string_pretty(&message_to_fdc)?,
-                serde_json::to_vec(&message_to_fdc)?,
-            ),
-            FoFdcMessage::MessageToObserverConfirm(..) => (
-                serde_json::to_string_pretty(&message_to_fdc)?,
-                serde_json::to_vec(&message_to_fdc)?,
-            ),
-
-            FoFdcMessage::ShotConfirm(..) => (
-                serde_json::to_string_pretty(&message_to_fdc)?,
-                serde_json::to_vec(&message_to_fdc)?,
-            ),
-            FoFdcMessage::SplashConfirm(..) => (
-                serde_json::to_string_pretty(&message_to_fdc)?,
-                serde_json::to_vec(&message_to_fdc)?,
-            ),
-            FoFdcMessage::RoundsCompleteConfirm(..) => (
-                serde_json::to_string_pretty(&message_to_fdc)?,
-                serde_json::to_vec(&message_to_fdc)?,
-            ),
-            FoFdcMessage::BattleDamageAssessment(..) => (
-                serde_json::to_string_pretty(&message_to_fdc)?,
-                serde_json::to_vec(&message_to_fdc)?,
-            ),
-            FoFdcMessage::SolidReadback(..) => (
+            FoFdcMessage::RequestForFire(..)
+            | FoFdcMessage::MessageToObserverConfirm(..)
+            | FoFdcMessage::ShotConfirm(..)
+            | FoFdcMessage::SplashConfirm(..)
+            | FoFdcMessage::RoundsCompleteConfirm(..)
+            | FoFdcMessage::BattleDamageAssessment(..)
+            | FoFdcMessage::SolidReadback(..) => (
                 serde_json::to_string_pretty(&message_to_fdc)?,
                 serde_json::to_vec(&message_to_fdc)?,
             ),

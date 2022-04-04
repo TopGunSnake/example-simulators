@@ -24,19 +24,22 @@ async fn main() -> Result<()> {
     let (to_fdc, to_fdc_receiver) = mpsc::unbounded_channel();
 
     info!("Starting the FO-FDC Comm Handler...");
-    let fo_fdc_commhandler_handle = tokio::spawn(async move {
-        fo_fdc_commhandler_loop(to_fdc_receiver, message_queue_sender).await
-    });
+    let fo_fdc_commhandler_handle = tokio::task::Builder::new()
+        .name("commhandler loop")
+        .spawn(async move { fo_fdc_commhandler_loop(to_fdc_receiver, message_queue_sender).await });
 
     info!("Starting state machine...");
-    let state_machine_handle =
-        tokio::spawn(async move { state_machine_loop(message_queue, to_fdc).await });
+    let state_machine_handle = tokio::task::Builder::new()
+        .name("state machine loop")
+        .spawn(async move { state_machine_loop(message_queue, to_fdc).await });
 
     //TODO: Right now, this select creates a stop on main until ctrl_c. We need to also exit on completion of handles.
     select! {
         _ = tokio::signal::ctrl_c() => {state_machine_handle.abort()}
     }
-    let _results = try_join!(fo_fdc_commhandler_handle, state_machine_handle);
+    let _results = try_join!(fo_fdc_commhandler_handle, state_machine_handle)?;
+    _results.0?;
+    _results.1?;
 
     //TODO: Unpack the results to propagate relevant errors.
     Ok(())

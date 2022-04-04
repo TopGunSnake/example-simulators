@@ -5,7 +5,6 @@ use std::sync::Arc;
 use anyhow::Result;
 use fo_fdc_comms::FoFdcMessage;
 use tokio::{
-    join,
     net::UdpSocket,
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
     try_join,
@@ -25,11 +24,15 @@ pub(crate) async fn fo_fdc_commhandler_loop(
     let socket = Arc::new(socket);
     let recv_handle = {
         let socket = Arc::clone(&socket);
-        tokio::spawn(async move { recv_loop(from_fo_tx, socket).await })
+        tokio::task::Builder::new()
+            .name("receive loop")
+            .spawn(async move { recv_loop(from_fo_tx, socket).await })
     };
 
     // Spin off writer thread
-    let send_handle = tokio::spawn(async move { send_loop(to_fo_rx, socket).await });
+    let send_handle = tokio::task::Builder::new()
+        .name("send loop")
+        .spawn(async move { send_loop(to_fo_rx, socket).await });
 
     let (left, right) = try_join!(recv_handle, send_handle)?;
     left?;
@@ -67,20 +70,21 @@ async fn send_loop(
     while let Some(message_to_fo) = to_fo_rx.recv().await {
         debug!("Sending {:?}", message_to_fo);
         let bytes = match message_to_fo {
-            FoFdcMessage::RequestForFireConfirm(msg) => serde_json::to_vec(&msg),
-            FoFdcMessage::MessageToObserver(msg) => serde_json::to_vec(&msg),
-            FoFdcMessage::Shot(msg) => serde_json::to_vec(&msg),
-            FoFdcMessage::Splash(msg) => serde_json::to_vec(&msg),
-            FoFdcMessage::RoundsComplete(msg) => serde_json::to_vec(&msg),
-            FoFdcMessage::BattleDamageAssessmentConfirm(msg) => serde_json::to_vec(&msg),
-            FoFdcMessage::SolidReadback(msg) => serde_json::to_vec(&msg),
+            FoFdcMessage::RequestForFireConfirm(..)
+            | FoFdcMessage::MessageToObserver(..)
+            | FoFdcMessage::Shot(..)
+            | FoFdcMessage::Splash(..)
+            | FoFdcMessage::RoundsComplete(..)
+            | FoFdcMessage::BattleDamageAssessmentConfirm(..)
+            | FoFdcMessage::SolidReadback(..) => serde_json::to_vec(&message_to_fo),
             _ => panic!(
                 "Unsupported message was sent for transmission to the FO: {:?}",
                 message_to_fo
             ),
         }?;
 
-        fo_socket.send(&bytes).await?;
+        let bytes_sent = fo_socket.send(&bytes).await?;
+        debug!("Sent {} bytes of {} ", bytes_sent, bytes.len());
     }
     trace!("Leaving the send loop");
     Ok(())
