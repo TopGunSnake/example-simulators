@@ -10,13 +10,16 @@ publish = false
 tokio = { version = "1.17", features = [
     "net",
     "signal",
+    "sync",
     "macros",
     "rt-multi-thread",
+    "tracing",
 ] }
 tokio-util = "0.7.1"
 
 tracing = { version = "0.1.32" }
 tracing-subscriber = "0.3"
+console-subscriber = "*"
 
 fo-fdc-comms = { path = "../fo-fdc-comms" }
 

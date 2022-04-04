@@ -2,7 +2,7 @@
 name = "fdc-sim"
 version = "0.1.0"
 edition = "2021"
-
+publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -10,13 +10,17 @@ fo-fdc-comms = { path = "../fo-fdc-comms" }
 
 tokio = { version = "1.17", features = [
     "net",
+    "sync",
     "signal",
+    "time",
     "macros",
     "rt-multi-thread",
+    "tracing",
 ] }
 
 tracing = { version = "0.1.32" }
 tracing-subscriber = "0.3"
+console-subscriber = "*"
 
 serde_json = "1.0.79"
 

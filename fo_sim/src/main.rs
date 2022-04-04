@@ -15,7 +15,10 @@ use state_machine::state_machine_loop;
 /// Entry function
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    // tracing_subscriber::fmt::init();
+    console_subscriber::ConsoleLayer::builder()
+        .server_addr(([127, 0, 0, 1], 6999))
+        .init();
 
     let (message_queue_sender, message_queue) = mpsc::unbounded_channel();
     let (to_fdc, to_fdc_receiver) = mpsc::unbounded_channel();
