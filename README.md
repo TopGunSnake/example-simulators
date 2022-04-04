@@ -6,10 +6,10 @@ Example of Simulators written in Rust. Each workspace member is either a binary 
 
 - [x] FO - FDC Message Definitions
 - [x] FDC - Gun Message Definitions
-- [ ] FO States
-- [ ] FDC States
+- [x] FO States
+- [x] FDC States
 - [ ] Gun States
-- [ ] FO - FDC Integration
+- [x] FO - FDC Integration
 - [ ] FDC - Gun Integration
 - [ ] Full System Integration
 - [ ] External Factor Control Message Definitions
