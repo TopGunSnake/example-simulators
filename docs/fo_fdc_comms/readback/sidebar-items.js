@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["SolidReadback","A readback confirmation message"]]});
+initSidebarItems({"enum":[["SolidReadback","A readback confirmation message"]]});

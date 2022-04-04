@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["fdc_gun_comms"] = [{"text":"impl Decoder for <a class=\"struct\" href=\"fdc_gun_comms/codec/struct.FdcGunMessageDecoder.html\" title=\"struct fdc_gun_comms::codec::FdcGunMessageDecoder\">FdcGunMessageDecoder</a>","synthetic":false,"types":["fdc_gun_comms::codec::FdcGunMessageDecoder"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

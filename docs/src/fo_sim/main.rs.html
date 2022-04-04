@@ -33,35 +33,61 @@
 <span id="31">31</span>
 <span id="32">32</span>
 <span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A Forward Observer (FO) Simulator</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This crate provides an `async` FO Simulator built on `tokio`.</span>
 <span class="doccomment">//! The crate will listen for and talk to any FDC over the [`fo_fdc_comms`] message interface.</span>
 <span class="kw">use</span> <span class="ident">anyhow::Result</span>;
-<span class="kw">use</span> <span class="ident">state_machine::state_machine_loop</span>;
 <span class="kw">use</span> <span class="ident">tokio</span>::{<span class="ident">select</span>, <span class="ident">sync::mpsc</span>, <span class="ident">try_join</span>};
 <span class="kw">use</span> <span class="ident">tracing::info</span>;
 
 <span class="kw">mod</span> <span class="ident">fo_fdc_commhandler</span>;
 <span class="kw">mod</span> <span class="ident">state_machine</span>;
 
+<span class="kw">use</span> <span class="ident">fo_fdc_commhandler::fo_fdc_commhandler_loop</span>;
+<span class="kw">use</span> <span class="ident">state_machine::state_machine_loop</span>;
+
 <span class="doccomment">/// Entry function</span>
 <span class="attribute">#[<span class="ident">tokio::main</span>]</span>
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="ident">tracing_subscriber::fmt::init</span>();
+    <span class="comment">// tracing_subscriber::fmt::init();</span>
+    <span class="ident">console_subscriber::ConsoleLayer::builder</span>()
+        .<span class="ident">server_addr</span>(([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">6999</span>))
+        .<span class="ident">init</span>();
 
     <span class="kw">let</span> (<span class="ident">message_queue_sender</span>, <span class="ident">message_queue</span>) <span class="op">=</span> <span class="ident">mpsc::unbounded_channel</span>();
     <span class="kw">let</span> (<span class="ident">to_fdc</span>, <span class="ident">to_fdc_receiver</span>) <span class="op">=</span> <span class="ident">mpsc::unbounded_channel</span>();
 
+    <span class="macro">info!</span>(<span class="string">&quot;Starting the FO-FDC Comm Handler...&quot;</span>);
+    <span class="kw">let</span> <span class="ident">fo_fdc_commhandler_handle</span> <span class="op">=</span> <span class="ident">tokio::task::Builder::new</span>()
+        .<span class="ident">name</span>(<span class="string">&quot;commhandler loop&quot;</span>)
+        .<span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">fo_fdc_commhandler_loop</span>(<span class="ident">to_fdc_receiver</span>, <span class="ident">message_queue_sender</span>).<span class="kw">await</span> });
+
     <span class="macro">info!</span>(<span class="string">&quot;Starting state machine...&quot;</span>);
-    <span class="kw">let</span> <span class="ident">state_machine_handle</span> <span class="op">=</span>
-        <span class="ident">tokio::spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">state_machine_loop</span>(<span class="ident">message_queue</span>, <span class="ident">to_fdc</span>).<span class="kw">await</span> });
+    <span class="kw">let</span> <span class="ident">state_machine_handle</span> <span class="op">=</span> <span class="ident">tokio::task::Builder::new</span>()
+        .<span class="ident">name</span>(<span class="string">&quot;state machine loop&quot;</span>)
+        .<span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">state_machine_loop</span>(<span class="ident">message_queue</span>, <span class="ident">to_fdc</span>).<span class="kw">await</span> });
 
     <span class="comment">//TODO: Right now, this select creates a stop on main until ctrl_c. We need to also exit on completion of handles.</span>
     <span class="macro">select!</span> {
         <span class="kw">_</span> <span class="op">=</span> <span class="ident">tokio::signal::ctrl_c</span>() =&gt; {<span class="ident">state_machine_handle</span>.<span class="ident">abort</span>()}
     }
-    <span class="kw">let</span> <span class="ident">results</span> <span class="op">=</span> <span class="macro">try_join!</span>(<span class="ident">state_machine_handle</span>);
+    <span class="kw">let</span> <span class="ident">_results</span> <span class="op">=</span> <span class="macro">try_join!</span>(<span class="ident">fo_fdc_commhandler_handle</span>, <span class="ident">state_machine_handle</span>)<span class="question-mark">?</span>;
+    <span class="ident">_results</span>.<span class="number">0</span><span class="question-mark">?</span>;
+    <span class="ident">_results</span>.<span class="number">1</span><span class="question-mark">?</span>;
 
     <span class="comment">//TODO: Unpack the results to propagate relevant errors.</span>
     <span class="prelude-val">Ok</span>(())

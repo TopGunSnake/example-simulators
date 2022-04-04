@@ -393,6 +393,9 @@
 <span id="391">391</span>
 <span id="392">392</span>
 <span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">missing_docs</span>,
     <span class="ident">clippy::doc_markdown</span>,
@@ -406,17 +409,15 @@
 <span class="doccomment">//! Raw Bytes (`Vec&lt;u8&gt;`) &lt;-&gt; [`FdcGunMessage`] with bytes and a message ID,</span>
 <span class="doccomment">//! and finally specific message instances with respective strong types.</span>
 
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">collections::HashMap</span>,
-    <span class="ident">io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">Write</span>},
-};
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections::HashMap</span>, <span class="ident">io</span>};
 
-<span class="kw">use</span> <span class="ident">byteorder</span>::{<span class="ident">NetworkEndian</span>, <span class="ident">ReadBytesExt</span>, <span class="ident">WriteBytesExt</span>};
-<span class="kw">use</span> <span class="ident">itertools::Itertools</span>;
+<span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Buf</span>, <span class="ident">BufMut</span>};
 <span class="kw">use</span> <span class="ident">num_enum</span>::{<span class="ident">IntoPrimitive</span>, <span class="ident">TryFromPrimitive</span>};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">use</span> <span class="ident">proptest_derive::Arbitrary</span>;
+
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">codec</span>;
 
 <span class="doccomment">/// High-level message definition.</span>
 <span class="doccomment">///</span>
@@ -494,7 +495,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// This method returns a [`std::io::Error`] if there is data missing,</span>
     <span class="doccomment">/// or if any data is otherwise invalid</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">Write</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">BufMut</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">message_contents</span> <span class="op">=</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">message_contents</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
             <span class="kw">match</span> <span class="self">self</span> {
@@ -542,11 +543,11 @@
             .<span class="ident">try_into</span>()
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">conv_err</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::InvalidData</span>, <span class="ident">conv_err</span>))<span class="question-mark">?</span>;
 
-        <span class="ident">buf</span>.<span class="ident">write_u32</span>::<span class="op">&lt;</span><span class="ident">NetworkEndian</span><span class="op">&gt;</span>(<span class="ident">message_length</span>)<span class="question-mark">?</span>;
-        <span class="ident">buf</span>.<span class="ident">write_u8</span>(<span class="self">self</span>.<span class="ident">into</span>())<span class="question-mark">?</span>;
+        <span class="ident">buf</span>.<span class="ident">put_u32</span>(<span class="ident">message_length</span>);
+        <span class="ident">buf</span>.<span class="ident">put_u8</span>(<span class="self">self</span>.<span class="ident">into</span>());
 
         <span class="comment">// Write data</span>
-        <span class="ident">buf</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">message_contents</span>)<span class="question-mark">?</span>;
+        <span class="ident">buf</span>.<span class="ident">put</span>(<span class="ident">message_contents</span>.<span class="ident">as_slice</span>());
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -557,10 +558,10 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// This method returns a [`std::io::Error`] if there is data missing,</span>
     <span class="doccomment">/// or if any data is otherwise invalid</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deserialize</span>(<span class="kw-2">mut</span> <span class="ident">buf</span>: <span class="kw">impl</span> <span class="ident">Read</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">_message_len</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">read_u32</span>::<span class="op">&lt;</span><span class="ident">NetworkEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deserialize</span>(<span class="kw-2">mut</span> <span class="ident">buf</span>: <span class="kw">impl</span> <span class="ident">Buf</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">_message_len</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">get_u32</span>();
 
-        <span class="kw">match</span> <span class="ident">buf</span>.<span class="ident">read_u8</span>()<span class="question-mark">?</span> {
+        <span class="kw">match</span> <span class="ident">buf</span>.<span class="ident">get_u8</span>() {
             <span class="comment">// ComplianceResponse</span>
             <span class="number">0x00</span> =&gt; <span class="ident">deserialize_compliance_response</span>(<span class="ident">buf</span>),
             <span class="comment">// FireReport</span>
@@ -588,7 +589,7 @@
     <span class="ident">message_contents</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
     <span class="ident">compliance</span>: <span class="kw-2">&amp;</span><span class="ident">Compliance</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">io::Error</span><span class="op">&gt;</span> {
-    <span class="ident">message_contents</span>.<span class="ident">write_u8</span>((<span class="kw-2">*</span><span class="ident">compliance</span>).<span class="ident">into</span>())<span class="question-mark">?</span>;
+    <span class="ident">message_contents</span>.<span class="ident">put_u8</span>((<span class="kw-2">*</span><span class="ident">compliance</span>).<span class="ident">into</span>());
     <span class="prelude-val">Ok</span>(())
 }
 
@@ -599,9 +600,9 @@
     <span class="ident">ammunition</span>: <span class="kw-2">&amp;</span><span class="ident">Ammunition</span>,
     <span class="ident">target_location</span>: <span class="kw-2">&amp;</span><span class="ident">TargetLocation</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">io::Error</span><span class="op">&gt;</span> {
-    <span class="ident">message_contents</span>.<span class="ident">write_u32</span>::<span class="op">&lt;</span><span class="ident">NetworkEndian</span><span class="op">&gt;</span>(<span class="kw-2">*</span><span class="ident">rounds</span>)<span class="question-mark">?</span>;
-    <span class="ident">message_contents</span>.<span class="ident">write_u8</span>((<span class="kw-2">*</span><span class="ident">ammunition</span>).<span class="ident">into</span>())<span class="question-mark">?</span>;
-    <span class="ident">target_location</span>.<span class="ident">serialize</span>(<span class="ident">message_contents</span>)<span class="question-mark">?</span>;
+    <span class="ident">message_contents</span>.<span class="ident">put_u32</span>(<span class="kw-2">*</span><span class="ident">rounds</span>);
+    <span class="ident">message_contents</span>.<span class="ident">put_u8</span>((<span class="kw-2">*</span><span class="ident">ammunition</span>).<span class="ident">into</span>());
+    <span class="ident">target_location</span>.<span class="ident">serialize</span>(<span class="ident">message_contents</span>);
     <span class="prelude-val">Ok</span>(())
 }
 
@@ -611,10 +612,11 @@
     <span class="ident">status</span>: <span class="kw-2">&amp;</span><span class="ident">Status</span>,
     <span class="ident">rounds</span>: <span class="kw-2">&amp;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Ammunition</span>, <span class="ident">u32</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">io::Error</span><span class="op">&gt;</span> {
-    <span class="ident">message_contents</span>.<span class="ident">write_u8</span>((<span class="kw-2">*</span><span class="ident">status</span>).<span class="ident">into</span>())<span class="question-mark">?</span>;
+    <span class="ident">message_contents</span>.<span class="ident">put_u8</span>((<span class="kw-2">*</span><span class="ident">status</span>).<span class="ident">into</span>());
+    <span class="ident">message_contents</span>.<span class="ident">reserve</span>(<span class="number">5</span> <span class="op">*</span> <span class="ident">rounds</span>.<span class="ident">len</span>());
     <span class="kw">for</span> (<span class="ident">ammo_type</span>, <span class="ident">ammo_count</span>) <span class="kw">in</span> <span class="ident">rounds</span> {
-        <span class="ident">message_contents</span>.<span class="ident">write_u8</span>((<span class="kw-2">*</span><span class="ident">ammo_type</span>).<span class="ident">into</span>())<span class="question-mark">?</span>;
-        <span class="ident">message_contents</span>.<span class="ident">write_u32</span>::<span class="op">&lt;</span><span class="ident">NetworkEndian</span><span class="op">&gt;</span>(<span class="kw-2">*</span><span class="ident">ammo_count</span>)<span class="question-mark">?</span>;
+        <span class="ident">message_contents</span>.<span class="ident">put_u8</span>((<span class="kw-2">*</span><span class="ident">ammo_type</span>).<span class="ident">into</span>());
+        <span class="ident">message_contents</span>.<span class="ident">put_u32</span>(<span class="kw-2">*</span><span class="ident">ammo_count</span>);
     }
     <span class="prelude-val">Ok</span>(())
 }
@@ -628,22 +630,22 @@
     <span class="ident">target_location</span>: <span class="kw-2">&amp;</span><span class="ident">TargetLocation</span>,
     <span class="ident">time_to_target</span>: <span class="kw-2">&amp;</span><span class="ident">u32</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">io::Error</span><span class="op">&gt;</span> {
-    <span class="ident">message_contents</span>.<span class="ident">write_u8</span>(<span class="kw-2">*</span><span class="ident">shot</span>)<span class="question-mark">?</span>;
-    <span class="ident">message_contents</span>.<span class="ident">write_u8</span>(<span class="kw-2">*</span><span class="ident">total_shots</span>)<span class="question-mark">?</span>;
-    <span class="ident">message_contents</span>.<span class="ident">write_u8</span>((<span class="kw-2">*</span><span class="ident">ammunition</span>).<span class="ident">into</span>())<span class="question-mark">?</span>;
-    <span class="ident">target_location</span>.<span class="ident">serialize</span>(<span class="ident">message_contents</span>)<span class="question-mark">?</span>;
-    <span class="ident">message_contents</span>.<span class="ident">write_u32</span>::<span class="op">&lt;</span><span class="ident">NetworkEndian</span><span class="op">&gt;</span>(<span class="kw-2">*</span><span class="ident">time_to_target</span>)<span class="question-mark">?</span>;
+    <span class="ident">message_contents</span>.<span class="ident">put_u8</span>(<span class="kw-2">*</span><span class="ident">shot</span>);
+    <span class="ident">message_contents</span>.<span class="ident">put_u8</span>(<span class="kw-2">*</span><span class="ident">total_shots</span>);
+    <span class="ident">message_contents</span>.<span class="ident">put_u8</span>((<span class="kw-2">*</span><span class="ident">ammunition</span>).<span class="ident">into</span>());
+    <span class="ident">target_location</span>.<span class="ident">serialize</span>(<span class="ident">message_contents</span>);
+    <span class="ident">message_contents</span>.<span class="ident">put_u32</span>(<span class="kw-2">*</span><span class="ident">time_to_target</span>);
     <span class="prelude-val">Ok</span>(())
 }
 
 <span class="doccomment">/// Deserializes to a [`FdcGunMessage::FireCommand`]</span>
-<span class="kw">fn</span> <span class="ident">deserialize_fire_command</span>(<span class="kw-2">mut</span> <span class="ident">buf</span>: <span class="kw">impl</span> <span class="ident">Read</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FdcGunMessage</span>, <span class="ident">io::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">rounds</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">read_u32</span>::<span class="op">&lt;</span><span class="ident">NetworkEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+<span class="kw">fn</span> <span class="ident">deserialize_fire_command</span>(<span class="kw-2">mut</span> <span class="ident">buf</span>: <span class="kw">impl</span> <span class="ident">Buf</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FdcGunMessage</span>, <span class="ident">io::Error</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">rounds</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">get_u32</span>();
     <span class="kw">let</span> <span class="ident">ammunition</span>: <span class="ident">Ammunition</span> <span class="op">=</span> <span class="ident">buf</span>
-        .<span class="ident">read_u8</span>()<span class="question-mark">?</span>
+        .<span class="ident">get_u8</span>()
         .<span class="ident">try_into</span>()
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">conv_err</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::InvalidData</span>, <span class="ident">conv_err</span>))<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">target_location</span> <span class="op">=</span> <span class="ident">TargetLocation::deserialize</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>)<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">target_location</span> <span class="op">=</span> <span class="ident">TargetLocation::deserialize</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>);
     <span class="prelude-val">Ok</span>(<span class="ident">FdcGunMessage::FireCommand</span> {
         <span class="ident">rounds</span>,
         <span class="ident">ammunition</span>,
@@ -652,49 +654,54 @@
 }
 
 <span class="doccomment">/// Deserializes to a [`FdcGunMessage::StatusReply`]</span>
-<span class="kw">fn</span> <span class="ident">deserialize_status_reply</span>(<span class="kw-2">mut</span> <span class="ident">buf</span>: <span class="kw">impl</span> <span class="ident">Read</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FdcGunMessage</span>, <span class="ident">io::Error</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">deserialize_status_reply</span>(<span class="kw-2">mut</span> <span class="ident">buf</span>: <span class="kw">impl</span> <span class="ident">Buf</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FdcGunMessage</span>, <span class="ident">io::Error</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="ident">buf</span>
-        .<span class="ident">read_u8</span>()<span class="question-mark">?</span>
+        .<span class="ident">get_u8</span>()
         .<span class="ident">try_into</span>()
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">conv_err</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::InvalidData</span>, <span class="ident">conv_err</span>))<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">rounds_chunks</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">bytes</span>().<span class="ident">chunks</span>(<span class="number">5</span>);
+
+    <span class="kw">let</span> <span class="ident">rounds_chunks</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">chunk</span>().<span class="ident">chunks</span>(<span class="number">5</span>);
+
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rounds</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Ammunition</span>, <span class="ident">u32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-    <span class="kw">for</span> <span class="kw-2">mut</span> <span class="ident">chunk</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">rounds_chunks</span> {
-        <span class="kw">let</span> <span class="ident">ammunition</span> <span class="op">=</span> <span class="ident">chunk</span>
-            .<span class="ident">next</span>()
-            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">io::Error::from</span>(<span class="ident">io::ErrorKind::InvalidData</span>))<span class="question-mark">?</span><span class="question-mark">?</span>
+    <span class="kw">for</span> <span class="ident">chunk</span> <span class="kw">in</span> <span class="ident">rounds_chunks</span> {
+        <span class="kw">let</span> (<span class="ident">ammo_byte</span>, <span class="ident">count_bytes</span>) <span class="op">=</span> <span class="ident">chunk</span>
+            .<span class="ident">split_first</span>()
+            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">io::Error::from</span>(<span class="ident">io::ErrorKind::InvalidData</span>))<span class="question-mark">?</span>;
+
+        <span class="kw">let</span> <span class="ident">ammunition</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">ammo_byte</span>)
             .<span class="ident">try_into</span>()
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">conv_err</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::InvalidData</span>, <span class="ident">conv_err</span>))<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">count</span> <span class="op">=</span> <span class="ident">chunk</span>.<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">count</span>: [<span class="ident">u8</span>; <span class="number">4</span>] <span class="op">=</span> <span class="ident">count</span>
+        <span class="comment">// let count = chunk.collect::&lt;Result&lt;Vec&lt;u8&gt;, _&gt;&gt;()?;</span>
+        <span class="kw">let</span> <span class="ident">count</span>: [<span class="ident">u8</span>; <span class="number">4</span>] <span class="op">=</span> <span class="ident">count_bytes</span>
             .<span class="ident">try_into</span>()
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::InvalidData</span>, <span class="string">&quot;Not enough data&quot;</span>))<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">count</span> <span class="op">=</span> <span class="ident">u32::from_be_bytes</span>(<span class="ident">count</span>);
         <span class="ident">rounds</span>.<span class="ident">insert</span>(<span class="ident">ammunition</span>, <span class="ident">count</span>);
     }
+
     <span class="prelude-val">Ok</span>(<span class="ident">FdcGunMessage::StatusReply</span> { <span class="ident">status</span>, <span class="ident">rounds</span> })
 }
 
 <span class="doccomment">/// Deserializes to a [`FdcGunMessage::ComplianceResponse`]</span>
-<span class="kw">fn</span> <span class="ident">deserialize_compliance_response</span>(<span class="kw-2">mut</span> <span class="ident">buf</span>: <span class="kw">impl</span> <span class="ident">Read</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FdcGunMessage</span>, <span class="ident">io::Error</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">deserialize_compliance_response</span>(<span class="kw-2">mut</span> <span class="ident">buf</span>: <span class="kw">impl</span> <span class="ident">Buf</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FdcGunMessage</span>, <span class="ident">io::Error</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">compliance</span> <span class="op">=</span> <span class="ident">buf</span>
-        .<span class="ident">read_u8</span>()<span class="question-mark">?</span>
+        .<span class="ident">get_u8</span>()
         .<span class="ident">try_into</span>()
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">conv_err</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::InvalidData</span>, <span class="ident">conv_err</span>))<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(<span class="ident">FdcGunMessage::ComplianceResponse</span> { <span class="ident">compliance</span> })
 }
 
 <span class="doccomment">/// Deserializes to a [`FdcGunMessage::FireReport`]</span>
-<span class="kw">fn</span> <span class="ident">deserialize_fire_report</span>(<span class="kw-2">mut</span> <span class="ident">buf</span>: <span class="kw">impl</span> <span class="ident">Read</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FdcGunMessage</span>, <span class="ident">io::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">shot</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">read_u8</span>()<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">total_shots</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">read_u8</span>()<span class="question-mark">?</span>;
+<span class="kw">fn</span> <span class="ident">deserialize_fire_report</span>(<span class="kw-2">mut</span> <span class="ident">buf</span>: <span class="kw">impl</span> <span class="ident">Buf</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FdcGunMessage</span>, <span class="ident">io::Error</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">shot</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">get_u8</span>();
+    <span class="kw">let</span> <span class="ident">total_shots</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">get_u8</span>();
     <span class="kw">let</span> <span class="ident">ammunition</span> <span class="op">=</span> <span class="ident">buf</span>
-        .<span class="ident">read_u8</span>()<span class="question-mark">?</span>
+        .<span class="ident">get_u8</span>()
         .<span class="ident">try_into</span>()
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">conv_err</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::InvalidData</span>, <span class="ident">conv_err</span>))<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">target_location</span> <span class="op">=</span> <span class="ident">TargetLocation::deserialize</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>)<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">time_to_target</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">read_u32</span>::<span class="op">&lt;</span><span class="ident">NetworkEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">target_location</span> <span class="op">=</span> <span class="ident">TargetLocation::deserialize</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>);
+    <span class="kw">let</span> <span class="ident">time_to_target</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">get_u32</span>();
 
     <span class="prelude-val">Ok</span>(<span class="ident">FdcGunMessage::FireReport</span> {
         <span class="ident">shot</span>,
@@ -740,18 +747,17 @@
 
 <span class="kw">impl</span> <span class="ident">TargetLocation</span> {
     <span class="doccomment">/// Serializes a [`TargetLocation`] to the supplied buffer</span>
-    <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">Write</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="ident">buf</span>.<span class="ident">write_u32</span>::<span class="op">&lt;</span><span class="ident">NetworkEndian</span><span class="op">&gt;</span>(<span class="self">self</span>.<span class="ident">range</span>)<span class="question-mark">?</span>;
-        <span class="ident">buf</span>.<span class="ident">write_u32</span>::<span class="op">&lt;</span><span class="ident">NetworkEndian</span><span class="op">&gt;</span>(<span class="self">self</span>.<span class="ident">direction</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
+    <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">BufMut</span>) {
+        <span class="ident">buf</span>.<span class="ident">put_u32</span>(<span class="self">self</span>.<span class="ident">range</span>);
+        <span class="ident">buf</span>.<span class="ident">put_u32</span>(<span class="self">self</span>.<span class="ident">direction</span>);
     }
 
     <span class="doccomment">/// Deserializes a [`TargetLocation`] from the supplied buffer</span>
-    <span class="kw">fn</span> <span class="ident">deserialize</span>(<span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">Read</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">range</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">read_u32</span>::<span class="op">&lt;</span><span class="ident">NetworkEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">direction</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">read_u32</span>::<span class="op">&lt;</span><span class="ident">NetworkEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+    <span class="kw">fn</span> <span class="ident">deserialize</span>(<span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">Buf</span>) -&gt; <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="ident">range</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">get_u32</span>();
+        <span class="kw">let</span> <span class="ident">direction</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">get_u32</span>();
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> { <span class="ident">range</span>, <span class="ident">direction</span> })
+        <span class="self">Self</span> { <span class="ident">range</span>, <span class="ident">direction</span> }
     }
 }
 

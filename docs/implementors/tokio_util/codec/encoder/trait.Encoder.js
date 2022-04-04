@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["fdc_gun_comms"] = [{"text":"impl Encoder&lt;<a class=\"enum\" href=\"fdc_gun_comms/enum.FdcGunMessage.html\" title=\"enum fdc_gun_comms::FdcGunMessage\">FdcGunMessage</a>&gt; for <a class=\"struct\" href=\"fdc_gun_comms/codec/struct.FdcGunMessageEncoder.html\" title=\"struct fdc_gun_comms::codec::FdcGunMessageEncoder\">FdcGunMessageEncoder</a>","synthetic":false,"types":["fdc_gun_comms::codec::FdcGunMessageEncoder"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
