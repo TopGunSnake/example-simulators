@@ -156,6 +156,7 @@ pub(crate) async fn state_machine_loop(
     info!("Starting state machine...");
     loop {
         trace!("Looping...");
+        debug!("State is {:?}", state);
 
         let message = match message_queue.try_recv() {
             Ok(message) => Some(message),
@@ -325,15 +326,19 @@ pub(crate) async fn state_machine_loop(
         trace!("Entering the state runner");
         // Run behavior for the state
         match state {
-            FoState::Offline => (),
+            FoState::Offline => {
+                state = FoState::Connected {
+                    state: ConnectedState::Standby,
+                }
+            }
 
             // For now, while in standby, send a fire order
             FoState::Connected {
                 state: ConnectedState::Standby,
             } => {
-                state
-                    .try_to_requesting()
-                    .expect("Invalid state for transition");
+                state = FoState::Connected {
+                    state: ConnectedState::Requesting,
+                };
 
                 let request_for_fire = WarnOrder {
                     src: "FO".to_string(),       //TODO: Get from source
